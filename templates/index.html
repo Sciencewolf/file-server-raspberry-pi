@@ -4,14 +4,24 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>file server</title>
+
+        <link type="image/png" sizes="96x96" rel="icon" href="https://img.icons8.com/?size=192&id=65371&format=png">
     </head>
 
     <script src="{{ url_for('static', filename='main.js') }}" defer async type="module"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
 
     <body>
-        <h1>Hi</h1>
-        <input type="file" id="upload-input" />
-        <button type="button" id="upload-btn">Upload</button>
+        <div id="specs"></div>
+        <form action="/upload" method="post", enctype="multipart/form-data">
+            <input type="file" name="file" id="upload-input" />
+            <input type="submit" id="upload-btn" value="upload"/>
+        </form>
+
+        <!-- <div class="see-all">
+            <a href="/all"><button type="button">See all files</button></a>
+        </div> -->
     </body>
 
 </html>
