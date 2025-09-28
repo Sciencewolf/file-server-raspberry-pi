@@ -3,25 +3,28 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>file server</title>
+        <title>file server raspberry pi</title>
 
         <link type="image/png" sizes="96x96" rel="icon" href="https://img.icons8.com/?size=192&id=65371&format=png">
+
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     </head>
 
     <script src="{{ url_for('static', filename='main.js') }}" defer async type="module"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-
     <body>
-        <div id="specs"></div>
-        <form action="/upload" method="post", enctype="multipart/form-data">
+        <form id="upload-form" enctype="multipart/form-data">
             <input type="file" name="file" id="upload-input" />
-            <input type="submit" id="upload-btn" value="upload"/>
+            <input type="submit" id="upload-btn" value="Upload" hidden/>
+            <button type="button" id="remove-file" hidden>Remove selected file</button>
         </form>
 
-        <!-- <div class="see-all">
-            <a href="/all"><button type="button">See all files</button></a>
-        </div> -->
+        <button type="button" id="all-files-btn">See all files</button>
+
+        <div class="see-all"></div>
     </body>
 
 </html>
