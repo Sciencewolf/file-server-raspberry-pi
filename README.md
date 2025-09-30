@@ -13,3 +13,9 @@
 > Stop the container
 
 - sudo docker stop <container_id>
+
+> [!NOTE]  
+> You can expose the file server to the internet using [ngrok](https://ngrok.com/ "ngrok site").
+
+Add `run.sh` to crontab  
+- @reboot /bin/bash <path_to>/run.sh
