@@ -4,7 +4,7 @@ import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config["DIR"] = "/home/aron/file-server-raspberry-pi/data"
+app.config["DIR"] = "/app/data"
 
 @app.route('/')
 def main():
