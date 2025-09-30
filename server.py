@@ -19,14 +19,14 @@ def secure_routes():
         key = request.args.get("key")
 
         if key != ACCESS_KEY:
-            abort(403, "Access denied.")
+            return render_template(template_name_or_list="error.html"), 403
 
         return
 
     key = request.headers.get("X-API-KEY")
 
     if key != ACCESS_KEY:
-        abort(403, "Access denied.")
+        return render_template(template_name_or_list="error.html"), 403
 
 @app.route("/")
 def main():

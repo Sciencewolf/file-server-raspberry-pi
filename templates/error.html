@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+</head>
+<style>
+    body {
+        min-height: 100vh;
+        max-width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 3em;
+        padding: 5vmax;
+        box-sizing: border-box;
+        background-color: black;
+        color: white;
+        overflow: hidden;
+    }
+</style>
+<body>
+    <h1>Error</h1>
+    <h2>Provide api key to continue.</h2>
+    <p id="url-p"></p>
+
+    <script defer>
+        document.getElementById('url-p').innerHTML = `${location.href}?key=<key>`;
+    </script>
+</body>
+</html>

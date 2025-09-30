@@ -6,13 +6,13 @@
 > [!NOTE]
 > Build and run container
 
-- sudo docker build -t file-server .
-- docker run -d -p 8080:8080 -v /home/data:/app/data file-server 
+- `sudo docker build -t file-server .`
+- `docker run -d -p 8080:8080 -v /home/data:/app/data file-server `
 
 > [!NOTE]
 > Stop the container
 
-- sudo docker stop <container_id>
+- `sudo docker stop <container_id>`
 
 > [!NOTE]  
 > You can expose the file server to the internet using [ngrok](https://ngrok.com/ "ngrok site").
