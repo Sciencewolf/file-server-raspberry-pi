@@ -6,9 +6,21 @@ const removeBtn = document.getElementById("remove-file")
 const allFilesBtn = document.getElementById("all-files-btn")
 const seeAllDiv = document.querySelector('.see-all')
 
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParam = new URLSearchParams(location.search)
+    const key = urlParam.get('key')
+
+    if(key) {
+        sessionStorage.setItem("key", key)
+    }
+})
+
 const getSpecs = async() => {
     try {
-        const data = await fetch('https://willing-just-penguin.ngrok-free.app/specs')
+        const data = await fetch(`/specs`, {
+            headers: { "X-API-KEY": sessionStorage.getItem("key") }
+        })
+
         const response = await data.json()
 
         console.log(response)
@@ -27,8 +39,9 @@ form.addEventListener("submit", async (e) => {
     data.append("file", file)
 
     try {
-        const res = await fetch("/upload", {
+        const res = await fetch(`/upload`, {
             method: "POST",
+            headers: { "X-API-KEY": sessionStorage.getItem('key') },
             body: data
         })
         const json = await res.json()
@@ -64,75 +77,114 @@ removeBtn.addEventListener("click", () => {
     btn.hidden = true
 })
 
-allFilesBtn.addEventListener("click", async() => {
-    if(allFilesBtn.innerHTML.includes('Hide')) {
-        seeAllDiv.style.display = 'none'
-        seeAllDiv.innerHTML = ''
+allFilesBtn.addEventListener("click", async () => {
+    if (allFilesBtn.innerHTML.includes("Hide")) {
+        seeAllDiv.style.display = "none"
+        seeAllDiv.innerHTML = ""
         allFilesBtn.innerHTML = "See all files"
     } else {
-        const data = await fetch('https://willing-just-penguin.ngrok-free.app/all')
-        const response = await data.json()
+        const key = sessionStorage.getItem("key")
 
-        if(response.files.length !== 0) {
-            seeAllDiv.style.cssText = `display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.1em;
-    flex-direction: column;
-    background-color: grey;
-    padding: 1em;
-    border-radius: 1em;`
+        try {
+            const data = await fetch(`/all`, {
+                headers: { "X-API-KEY": key }
+            })
+            const response = await data.json()
 
-            for (const val of response.files) {
-                const pTag = document.createElement('p')
-                pTag.innerHTML = val
+            if (response.files.length !== 0) {
+                seeAllDiv.style.cssText = `display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 0.1em;
+                    flex-direction: column;
+                    background-color: grey;
+                    padding: 1em;
+                    border-radius: 1em;`
 
-                const aTag = document.createElement('a')
-                aTag.href = `/get/${val}`
-                aTag.download = true
-                aTag.innerHTML = "<button>Download</button>"
+                for (const val of response.files) {
+                    const pTag = document.createElement("p")
+                    pTag.innerHTML = val
 
-                const combineTags = document.createElement('span')
-                combineTags.style.display = 'flex'
-                combineTags.style.justifyContent = 'center'
-                combineTags.style.alignItems = 'center'
-                combineTags.style.gap = '0.5em'
+                    const downloadBtn = document.createElement("button")
+                    downloadBtn.innerHTML = "Download"
+                    downloadBtn.addEventListener("click", async () => {
+                        try {
+                            const res = await fetch(`/get/${val}`, {
+                                headers: { "X-API-KEY": key }
+                            })
+                            if (!res.ok) throw new Error("Download failed")
 
-                const buttonTagDelete = document.createElement('button')
-                buttonTagDelete.id = "delete-btn"
-                buttonTagDelete.innerHTML = "Delete"
-                buttonTagDelete.addEventListener('click', async () => {
+                            const blob = await res.blob()
+                            const url = URL.createObjectURL(blob)
 
-                    if (confirm(`Are you sure you want to delete '${val}'?`)) {
-                        const res = await fetch(`https://willing-just-penguin.ngrok-free.app/delete/${val}`)
-                        const resJson = await res.json()
+                            const a = document.createElement("a")
+                            a.href = url
+                            a.download = val
+                            document.body.appendChild(a)
+                            a.click()
+                            document.body.removeChild(a)
+                            URL.revokeObjectURL(url)
+                        } catch (err) {
+                            console.error(err)
+                            Toastify({
+                                text: `Error downloading ${val}`,
+                                duration: 5000,
+                                gravity: "top",
+                                position: "center"
+                            }).showToast()
+                        }
+                    })
 
-                        Toastify({
-                            text: resJson.info,
-                            duration: 5000,
-                            gravity: "top",
-                            position: "center"
-                        }).showToast();
+                    const deleteBtn = document.createElement("button")
+                    deleteBtn.innerHTML = "Delete"
+                    deleteBtn.addEventListener("click", async () => {
+                        if (confirm(`Are you sure you want to delete '${val}'?`)) {
+                            const res = await fetch(`/delete/${val}`, {
+                                headers: { "X-API-KEY": key }
+                            })
+                            const resJson = await res.json()
 
-                        seeAllDiv.removeChild(combineTags)
-                    }
-                })
+                            Toastify({
+                                text: resJson.info,
+                                duration: 5000,
+                                gravity: "top",
+                                position: "center"
+                            }).showToast()
 
-                combineTags.appendChild(pTag)
-                combineTags.appendChild(aTag)
-                combineTags.appendChild(buttonTagDelete)
+                            seeAllDiv.removeChild(wrapper)
+                        }
+                    })
 
-                seeAllDiv.appendChild(combineTags)
+                    const wrapper = document.createElement("span")
+                    wrapper.style.display = "flex"
+                    wrapper.style.justifyContent = "center"
+                    wrapper.style.alignItems = "center"
+                    wrapper.style.gap = "0.5em"
+
+                    wrapper.appendChild(pTag)
+                    wrapper.appendChild(downloadBtn)
+                    wrapper.appendChild(deleteBtn)
+
+                    seeAllDiv.appendChild(wrapper)
+                }
+
+                allFilesBtn.innerHTML = "Hide all files"
+            } else {
+                Toastify({
+                    text: "No files fetched.",
+                    duration: 5000,
+                    gravity: "top",
+                    position: "center"
+                }).showToast()
             }
-
-            allFilesBtn.innerHTML = "Hide all files"
-        } else {
+        } catch (err) {
+            console.error(err)
             Toastify({
-                text: "No files fetched.",
+                text: "Error fetching file list.",
                 duration: 5000,
                 gravity: "top",
                 position: "center"
-            }).showToast();
+            }).showToast()
         }
     }
 })

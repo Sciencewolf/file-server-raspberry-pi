@@ -8,6 +8,7 @@ __pycache__/
 
 # else
 /data
+.env
 
 # Distribution / packaging
 .Python

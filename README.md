@@ -17,5 +17,5 @@
 > [!NOTE]  
 > You can expose the file server to the internet using [ngrok](https://ngrok.com/ "ngrok site").
 
-Add `run.sh` to crontab  
-- @reboot /bin/bash <path_to>/run.sh
+- Change domain inside `run.sh`
+- Add `run.sh` to crontab: `@reboot /bin/bash <path_to>/run.sh`

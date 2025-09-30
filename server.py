@@ -1,45 +1,56 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, abort
 import psutil
 import os
 from werkzeug.utils import secure_filename
+import dotenv
 
 app = Flask(__name__)
 app.config["DIR"] = "/app/data"
 
-@app.route('/')
-def main():
-    return render_template(template_name_or_list="index.html")
+dotenv.load_dotenv()
+ACCESS_KEY = os.getenv("KEY")
 
-
-@app.route("/upload", methods=["POST", "GET"])
-def upload():
-    if request.method == 'POST':
-        file = request.files['file']
-        fname = secure_filename(file.filename)
-        file.save(os.path.join(app.config['DIR'], fname))
-
-        return jsonify({"info": f"'{fname}' successfully uploaded."})
+@app.before_request
+def secure_routes():
+    if request.endpoint == "static":
+        return
     
+    if request.endpoint == "main":
+        key = request.args.get("key")
+
+        if key != ACCESS_KEY:
+            abort(403, "Access denied.")
+
+        return
+
+    key = request.headers.get("X-API-KEY")
+
+    if key != ACCESS_KEY:
+        abort(403, "Access denied.")
+
+@app.route("/")
+def main():
+    return render_template("index.html")
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    file = request.files["file"]
+    fname = secure_filename(file.filename)
+    file.save(os.path.join(app.config["DIR"], fname))
+    return jsonify({"info": f"'{fname}' successfully uploaded."})
 
 @app.route("/get/<filename>")
 def get_file(filename):
-    return send_from_directory(app.config['DIR'], filename)
+    return send_from_directory(app.config["DIR"], filename)
 
-
-@app.route('/delete/<filename>')
+@app.route("/delete/<filename>")
 def delete_file(filename):
-    os.remove(os.path.join(app.config['DIR'], filename))
-
+    os.remove(os.path.join(app.config["DIR"], filename))
     return jsonify({"info": f"'{filename}' deleted successfully."})
-    
 
-@app.route('/all', methods=["GET"])
+@app.route("/all")
 def get_all():
-    return jsonify({"files": get_all_files()})
-
-
-def get_all_files():
-    return os.listdir(app.config['DIR'])
+    return jsonify({"files": os.listdir(app.config["DIR"])})
 
 @app.route("/specs")
 def specs():
