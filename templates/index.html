@@ -1,15 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- required meta tags -->
+        <meta charset="UTF-8">      
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0">
+        <meta name="theme-color" content="black" id="meta-theme">
+        <meta name="description" content="File server On Raspberry Pi">
+
+        <!-- title -->
         <title>file server raspberry pi</title>
 
+        <!-- favicon -->
         <link type="image/png" sizes="96x96" rel="icon" href="https://img.icons8.com/?size=192&id=65371&format=png">
 
         <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
 
         <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+        <!-- Open Graph meta tags when sharing the webpage -->
+        <meta property="og:title" content="File server" id="og-meta-title">
+        <meta property="og:type" content="website">
+        <meta property="og:description" content="File server project ">
+        <meta property="og:image" content="https://img.icons8.com/?size=192&id=65371&format=png" id="og-meta-img">
+        <meta property="og:url" content="" id="og-meta-url">
+
+        <!--for Apple Safari -->
+        <link rel="shortcut icon" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
+        <link rel="apple-touch-icon" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
+        <link rel="apple-touch-startup-image" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
+
     </head>
 
     <script src="{{ url_for('static', filename='main.js') }}" defer></script>

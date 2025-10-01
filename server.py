@@ -10,6 +10,7 @@ app.config["DIR"] = "/app/data"
 dotenv.load_dotenv()
 ACCESS_KEY = os.getenv("KEY")
 
+
 @app.before_request
 def secure_routes():
     if request.endpoint == "static":
@@ -27,10 +28,12 @@ def secure_routes():
 
     if key != ACCESS_KEY:
         return render_template(template_name_or_list="error.html"), 403
+    
 
 @app.route("/")
 def main():
     return render_template("index.html")
+
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -39,22 +42,27 @@ def upload():
     file.save(os.path.join(app.config["DIR"], fname))
     return jsonify({"info": f"'{fname}' successfully uploaded."})
 
+
 @app.route("/get/<filename>")
 def get_file(filename):
     return send_from_directory(app.config["DIR"], filename)
+
 
 @app.route("/delete/<filename>")
 def delete_file(filename):
     os.remove(os.path.join(app.config["DIR"], filename))
     return jsonify({"info": f"'{filename}' deleted successfully."})
 
+
 @app.route("/all")
 def get_all():
     return jsonify({"files": os.listdir(app.config["DIR"])})
 
+
 @app.route("/specs")
 def specs():
     return jsonify({"res": str(psutil.disk_usage('/'))})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
