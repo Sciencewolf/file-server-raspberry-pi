@@ -26,9 +26,31 @@ form {
     overflow: auto;
 }
 
+img {
+  width: 20px;
+  height: auto;
+}
+
+#download-btn-wrapper, #rename-btn-wrapper, #delete-btn-wrapper  {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  gap: 1em;
+}
+
+#download-btn {
+  color: lightskyblue;
+}
+
+#rename-btn {
+  color: darkgreen;
+}
+
 #delete-btn {
   color: red;
 }
+
 
 #upload-input {
   width: auto;

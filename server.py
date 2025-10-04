@@ -1,11 +1,10 @@
 from flask import Flask, render_template, jsonify, request, send_from_directory, abort
-import psutil
 import os
 from werkzeug.utils import secure_filename
 import dotenv
 
 app = Flask(__name__)
-app.config["DIR"] = "/app/data"
+app.config["DIR"] = "data/"
 
 dotenv.load_dotenv()
 ACCESS_KEY = os.getenv("KEY")
@@ -48,6 +47,15 @@ def get_file(filename):
     return send_from_directory(app.config["DIR"], filename)
 
 
+@app.route("/rename/<filename>")
+def rename_file(filename):
+    new_filename = request.args.get("val")
+
+    os.rename(f"{app.config['DIR']}/{filename}", f"{app.config['DIR']}/{new_filename}")
+
+    return jsonify({"info": f"'{filename}' is renamed to '{new_filename}' succesfully."})
+
+
 @app.route("/delete/<filename>")
 def delete_file(filename):
     os.remove(os.path.join(app.config["DIR"], filename))
@@ -59,9 +67,9 @@ def get_all():
     return jsonify({"files": os.listdir(app.config["DIR"])})
 
 
-@app.route("/specs")
-def specs():
-    return jsonify({"res": str(psutil.disk_usage('/'))})
+@app.route("/connection")
+def check_connection():
+    return "OK", 200
 
 
 if __name__ == "__main__":
