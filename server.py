@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 import dotenv
 
 app = Flask(__name__)
-app.config["DIR"] = "data/"
+app.config["DIR"] = "/app/data"
 
 dotenv.load_dotenv()
 ACCESS_KEY = os.getenv("KEY")
