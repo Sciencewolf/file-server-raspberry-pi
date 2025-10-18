@@ -143,7 +143,7 @@ allFilesBtn.addEventListener("click", async () => {
 
                         if(prompt_value) {
                             const res = await fetch(`/rename/${val}?val=${filename}`, {
-                                headers: {"X_API_KEY": key}
+                                headers: {"X-API-KEY": key}
                             })
 
                             const data = await res.json()
@@ -159,12 +159,14 @@ allFilesBtn.addEventListener("click", async () => {
                         }
                     })
 
+                    const preview = document.createElement('a')
+                    preview.innerHTML = "Preview"
+                    preview.id = 'preview-a'
+                    preview.href = `/data/${pTag.innerHTML}`
+                    preview.target = '_blank'
+
                     const deleteBtnWrapper = document.createElement('div')
                     deleteBtnWrapper.id = 'delete-btn-wrapper'
-
-                    const deleteImg = document.createElement('img')
-                    deleteImg.src = '/static/icons8-delete-24.png'
-                    deleteImg.alt = 'delete image'
 
                     const deleteBtn = document.createElement("button")
                     deleteBtn.innerHTML = "Delete"
@@ -192,7 +194,6 @@ allFilesBtn.addEventListener("click", async () => {
                         }
                     })
 
-                    deleteBtnWrapper.appendChild(deleteImg)
                     deleteBtnWrapper.appendChild(deleteBtn)
 
                     const wrapper = document.createElement("span")
@@ -204,6 +205,7 @@ allFilesBtn.addEventListener("click", async () => {
                     wrapper.appendChild(pTag)
                     wrapper.appendChild(downloadBtn)
                     wrapper.appendChild(renameBtn)
+                    wrapper.appendChild(preview)
                     wrapper.appendChild(deleteBtnWrapper)
 
                     seeAllDiv.appendChild(wrapper)

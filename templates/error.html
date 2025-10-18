@@ -22,12 +22,17 @@
     }
 </style>
 <body>
-    <h1>Error</h1>
-    <h2>Provide api key to continue.</h2>
-    <p id="url-p"></p>
 
-    <script defer>
-        document.getElementById('url-p').innerHTML = `${location.href}?key=<key>`;
-    </script>
+    {% if api_error %}
+        <h1>Error</h1>
+        <h2>Provide api key to continue.</h2>
+        <p id="url-p"></p>
+
+        <script defer>
+            document.getElementById('url-p').innerHTML = `${location.href}?key=<key>`;
+        </script>
+    {% else %}
+        <h1>No such file!</h1>
+    {% endif %}
 </body>
 </html>
