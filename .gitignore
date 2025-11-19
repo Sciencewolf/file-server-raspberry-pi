@@ -9,6 +9,7 @@ __pycache__/
 # else
 /data
 .env
+.idea
 
 # Distribution / packaging
 .Python

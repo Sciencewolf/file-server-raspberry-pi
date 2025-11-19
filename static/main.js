@@ -12,6 +12,58 @@ disconnectedTag.style.fontSize = '5em'
 document.body.appendChild(disconnectedTag)
 disconnectedTag.hidden = true
 
+const wrapperNewFile = document.getElementById('wrapper-new-file')
+const newFileTextarea = document.getElementById('textarea-new-file')
+const showNewFileCheckbox = document.getElementById("checkbox-new-file")
+const uploadNewFileButton = document.getElementById('btn-send-new-file')
+const fnameInput = document.getElementById('fname-input')
+const fileExtensionInput = document.getElementById('file-ext-input')
+const clearFileName = document.getElementById('btn-clear-filename')
+const clearTextarea = document.getElementById('btn-clear-textarea')
+// todo: check on upload filename and ext
+clearFileName.addEventListener('click', () => {
+    fnameInput.value = ''
+    fileExtensionInput.value = ''
+})
+
+clearTextarea.addEventListener('click', () => {
+    newFileTextarea.value = ''
+})
+
+showNewFileCheckbox.addEventListener('change', () => {
+    if(!showNewFileCheckbox.checked) {
+        wrapperNewFile.style.display = 'none'
+    } else {
+        wrapperNewFile.style.display = 'flex'
+    }
+})
+
+uploadNewFileButton.addEventListener('click', async() => {
+    const getText = newFileTextarea.value
+
+    try {
+        const callApi = await fetch(`/create?fname=${fnameInput.value}&ext=${fileExtensionInput.value}`, {
+            method: 'POST',
+            headers: { "X-API-KEY": sessionStorage.getItem('key') },
+            body: getText
+        })
+
+        const response = await callApi.json()
+
+        Toastify({
+            text: response.info,
+            duration: 4000,
+            gravity: "top",
+            position: "center"
+        }).showToast()
+
+        wrapperNewFile.style.display = 'none'
+        showNewFileCheckbox.checked = false
+    } catch(err) {
+        console.log(err);
+    }
+})
+
 document.addEventListener('DOMContentLoaded', () => {
     const urlParam = new URLSearchParams(location.search)
     const key = urlParam.get('key')

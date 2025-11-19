@@ -57,6 +57,18 @@ def get_file(filename):
     return send_from_directory(app.config["DIR"], filename)
 
 
+@app.route("/create", methods=['POST'])
+def create():
+    filename = request.args.get('fname')
+    file_extension = request.args.get('ext')
+    body = request.data.decode('utf-8')
+
+    with open(f"{app.config['DIR']}/{filename}.{file_extension}", 'w') as file:
+        file.write(body)
+
+    return jsonify({"info": f"'{filename}.{file_extension}' is created."})
+
+
 @app.route("/rename/<filename>")
 def rename_file(filename):
     new_filename = request.args.get("val")

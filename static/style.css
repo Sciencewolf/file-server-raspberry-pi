@@ -58,6 +58,38 @@ img {
   white-space: normal;
 }
 
+.wrapper-new-file {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1em;
+  flex-direction: column;
+}
+
+.wrapper-new-file-handler {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3em;
+  flex-direction: row;
+}
+
+.wrapper-file-names {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .1em;
+  flex-direction: row;
+}
+
+.wrapper-btn-action {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2em;
+  flex-direction: row;
+}
+
 button:hover{
   cursor: pointer;
 }

@@ -41,6 +41,26 @@
             <button type="button" id="remove-file" hidden>Remove selected file</button>
         </form>
 
+        <div class="wrapper-new-file-handler">
+            <label for="checkbox-new-file">Create new file</label>
+            <input type="checkbox" id="checkbox-new-file" checked />
+        </div>
+
+        <div class="wrapper-new-file" id="wrapper-new-file">
+            <div class="wrapper-file-names">
+                <input type="text" id="fname-input" placeholder="filename"/> | 
+                <input type="text" id="file-ext-input" placeholder="extension" width="3em" /> | 
+                <button type="button" id="btn-clear-filename">Clear</button>
+            </div>
+
+            <textarea id="textarea-new-file" rows="10" cols="50"></textarea>
+
+            <div class="wrapper-btn-action">
+                <button type="button" id="btn-send-new-file">Upload</button>
+                <button type="button" id="btn-clear-textarea">Clear content</button>
+            </div>
+        </div>
+
         <button type="button" id="all-files-btn">See all files</button>
 
         <div class="see-all"></div>
