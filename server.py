@@ -7,29 +7,6 @@ import uuid
 app = Flask(__name__)
 
 app.config["DIR"] = '/app/data'
-
-dotenv.load_dotenv()
-ACCESS_KEY = os.getenv("KEY")
-
-
-@app.before_request
-def secure_routes():
-    if request.endpoint in ["static", "serve_data"]:
-        return
-
-    
-    if request.endpoint == "main":
-        key = request.args.get("key")
-
-        if key != ACCESS_KEY:
-            return render_template(template_name_or_list="error.html", api_error=True), 403
-
-        return
-
-    key = request.headers.get("X-API-KEY")
-
-    if key != ACCESS_KEY:
-        return render_template(template_name_or_list="error.html", api_error=True), 403
     
 
 @app.route("/")
@@ -59,8 +36,8 @@ def get_file(filename):
 
 @app.route("/create", methods=['POST'])
 def create():
-    filename = request.args.get('fname')
-    file_extension = request.args.get('ext')
+    filename = request.args.get('fname') or 'plain'
+    file_extension = request.args.get('ext') or 'txt'
     body = request.data.decode('utf-8')
 
     with open(f"{app.config['DIR']}/{filename}.{file_extension}", 'w') as file:
@@ -93,6 +70,14 @@ def get_all():
 def serve_data(filename):
     return send_from_directory(os.path.join(os.getcwd(), "data"), filename)
 
+
+@app.route('/qr')
+def qr_code():
+    import qr_code as qr
+
+    link = qr.trigger_n8n_workflow()
+
+    return f'<a href="{link}" target="_blank">qr code image</a></br><h3>URL: {link} <h3 />', 200
 
 
 @app.route("/connection")
