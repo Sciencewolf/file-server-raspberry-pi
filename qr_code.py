@@ -1,8 +1,10 @@
 import requests as rq
-import json
+import os, dotenv
+
+dotenv.load_dotenv()
 
 def trigger_n8n_workflow() -> dict:
-    req = rq.get('https://reflexshop.app.n8n.cloud/webhook/qr-code')
+    req = rq.get(os.getenv('API'))
 
     response = req.json()
 
@@ -10,6 +12,3 @@ def trigger_n8n_workflow() -> dict:
 
     
     return dict(response).get('webContentLink')
-
-
-print(trigger_n8n_workflow())
