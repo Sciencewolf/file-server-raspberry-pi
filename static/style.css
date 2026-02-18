@@ -21,9 +21,10 @@ form {
 
 .see-all {
     max-width: fit-content;
-    max-height: 300px;
+    max-height: 500px;
     scroll-behavior: smooth;
     overflow: auto;
+    border-radius: 10px;
 }
 
 img {
@@ -152,4 +153,8 @@ input[type="submit"], #remove-file, #all-files-btn {
 
 input[type="submit"]:hover, #remove-file:hover, #all-files-btn:hover {
     cursor: pointer;
+}
+
+span {
+  padding: 1em;
 }

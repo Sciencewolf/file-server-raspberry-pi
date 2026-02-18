@@ -70,6 +70,7 @@ def get_all():
 def serve_data(filename):
     return send_from_directory(os.path.join(os.getcwd(), "data"), filename)
 
+"""Other sub APIs"""
 
 @app.route('/qr')
 def qr_code():

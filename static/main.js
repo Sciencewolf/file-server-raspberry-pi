@@ -38,6 +38,14 @@ showNewFileCheckbox.addEventListener('change', () => {
     }
 })
 
+showNewFileCheckbox.addEventListener('load', () => {
+    if (!showNewFileCheckbox.checked) {
+        wrapperNewFile.style.display = 'none'
+    } else {
+        wrapperNewFile.style.display = 'flex'
+    }
+})
+
 uploadNewFileButton.addEventListener('click', async() => {
     const getText = newFileTextarea.value
 
@@ -143,7 +151,8 @@ allFilesBtn.addEventListener("click", async () => {
                     flex-direction: column;
                     background-color: grey;
                     padding: 1em;
-                    border-radius: 1em;`
+                    border-radius: 1em;
+                    width: fit-content;`
 
                 for (const val of response.files) {
                     let filename = val
@@ -182,7 +191,7 @@ allFilesBtn.addEventListener("click", async () => {
                         }
                     })
 
-                    // TODO: add for all items wrappers and img tags
+
                     const renameBtn = document.createElement("button")
                     renameBtn.innerHTML = "Rename"
                     renameBtn.id = 'rename-btn'
@@ -249,18 +258,28 @@ allFilesBtn.addEventListener("click", async () => {
                     deleteBtnWrapper.appendChild(deleteBtn)
 
                     const wrapper = document.createElement("span")
+                    wrapper.style.cssText = "display: flex;justify-content: center;align-items: center;gap: 0.5em;flex-direction: column;z-index: 5;"
                     wrapper.style.display = "flex"
                     wrapper.style.justifyContent = "center"
                     wrapper.style.alignItems = "center"
                     wrapper.style.gap = "0.5em"
+                    wrapper.style.border = "1px solid black"
 
                     wrapper.appendChild(pTag)
-                    wrapper.appendChild(downloadBtn)
-                    wrapper.appendChild(renameBtn)
-                    wrapper.appendChild(preview)
-                    wrapper.appendChild(deleteBtnWrapper)
+                    const d = document.createElement('div')
+                    d.appendChild(downloadBtn)
+                    d.appendChild(renameBtn)
+                    d.appendChild(preview)
+                    d.appendChild(deleteBtnWrapper)
+
+                    d.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 0.5em;'
+
+                    wrapper.appendChild(d)
+                    wrapper.style.backgroundColor = 'lightgreen'
+                    wrapper.style.color = 'black'
 
                     seeAllDiv.appendChild(wrapper)
+                    seeAllDiv.style.cssText = 'gap: 1em;'
                 }
 
                 allFilesBtn.innerHTML = "Hide all files"
