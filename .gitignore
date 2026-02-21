@@ -10,6 +10,7 @@ __pycache__/
 /data
 .env
 .idea
+qr_code.py
 
 # Distribution / packaging
 .Python

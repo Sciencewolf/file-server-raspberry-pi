@@ -6,7 +6,7 @@ import uuid
 
 app = Flask(__name__)
 
-app.config["DIR"] = '/app/data'
+app.config["DIR"] = '../data/'
     
 
 @app.route("/")
@@ -17,13 +17,9 @@ def main():
 @app.route("/upload", methods=["POST"])
 def upload():
     file = request.files["file"]
-
     path = app.config['DIR']
-
     file.filename = file.filename.split('.')[0] + '_' + str(uuid.uuid4()).split('-')[0] + '.' + file.filename.split('.')[1]
-
     fname = secure_filename(file.filename)
-
     file.save(os.path.join(path, fname))
 
     return jsonify({"info": f"'{fname}' successfully uploaded."})
@@ -49,7 +45,6 @@ def create():
 @app.route("/rename/<filename>")
 def rename_file(filename):
     new_filename = request.args.get("val")
-
     os.rename(f"{app.config['DIR']}/{filename}", f"{app.config['DIR']}/{new_filename}")
 
     return jsonify({"info": f"'{filename}' is renamed to '{new_filename}' succesfully."})
@@ -58,6 +53,7 @@ def rename_file(filename):
 @app.route("/delete/<filename>")
 def delete_file(filename):
     os.remove(os.path.join(app.config["DIR"], filename))
+
     return jsonify({"info": f"'{filename}' deleted successfully."})
 
 
@@ -69,16 +65,6 @@ def get_all():
 @app.route("/data/<path:filename>")
 def serve_data(filename):
     return send_from_directory(os.path.join(os.getcwd(), "data"), filename)
-
-"""Other sub APIs"""
-
-@app.route('/qr')
-def qr_code():
-    import qr_code as qr
-
-    link = qr.trigger_n8n_workflow()
-
-    return f'<a href="{link}" target="_blank">qr code image</a></br><h3>URL: {link} <h3 />', 200
 
 
 @app.route("/connection")

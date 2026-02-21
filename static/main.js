@@ -20,7 +20,8 @@ const fnameInput = document.getElementById('fname-input')
 const fileExtensionInput = document.getElementById('file-ext-input')
 const clearFileName = document.getElementById('btn-clear-filename')
 const clearTextarea = document.getElementById('btn-clear-textarea')
-// todo: check on upload filename and ext
+
+
 clearFileName.addEventListener('click', () => {
     fnameInput.value = ''
     fileExtensionInput.value = ''
@@ -38,13 +39,6 @@ showNewFileCheckbox.addEventListener('change', () => {
     }
 })
 
-showNewFileCheckbox.addEventListener('load', () => {
-    if (!showNewFileCheckbox.checked) {
-        wrapperNewFile.style.display = 'none'
-    } else {
-        wrapperNewFile.style.display = 'flex'
-    }
-})
 
 uploadNewFileButton.addEventListener('click', async() => {
     const getText = newFileTextarea.value
@@ -52,7 +46,6 @@ uploadNewFileButton.addEventListener('click', async() => {
     try {
         const callApi = await fetch(`/create?fname=${fnameInput.value}&ext=${fileExtensionInput.value}`, {
             method: 'POST',
-            headers: { "X-API-KEY": sessionStorage.getItem('key') },
             body: getText
         })
 
@@ -60,7 +53,7 @@ uploadNewFileButton.addEventListener('click', async() => {
 
         Toastify({
             text: response.info,
-            duration: 4000,
+            duration: 3000,
             gravity: "top",
             position: "center"
         }).showToast()
@@ -72,14 +65,6 @@ uploadNewFileButton.addEventListener('click', async() => {
     }
 })
 
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParam = new URLSearchParams(location.search)
-    const key = urlParam.get('key')
-
-    if(key) {
-        sessionStorage.setItem("key", key)
-    }
-})
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault()
@@ -93,14 +78,13 @@ form.addEventListener("submit", async (e) => {
     try {
         const res = await fetch(`/upload`, {
             method: "POST",
-            headers: { "X-API-KEY": sessionStorage.getItem('key') },
             body: data
         })
         const json = await res.json()
 
         Toastify({
             text: json.info,
-            duration: 4000,
+            duration: 3000,
             gravity: "top",
             position: "center"
         }).showToast()
@@ -135,12 +119,9 @@ allFilesBtn.addEventListener("click", async () => {
         seeAllDiv.innerHTML = ""
         allFilesBtn.innerHTML = "See all files"
     } else {
-        const key = sessionStorage.getItem("key")
 
         try {
-            const data = await fetch(`/all`, {
-                headers: { "X-API-KEY": key }
-            })
+            const data = await fetch(`/all`, {})
             const response = await data.json()
 
             if (response.files.length !== 0) {
@@ -165,9 +146,7 @@ allFilesBtn.addEventListener("click", async () => {
                     downloadBtn.id = 'download-btn'
                     downloadBtn.addEventListener("click", async () => {
                         try {
-                            const res = await fetch(`/get/${val}`, {
-                                headers: { "X-API-KEY": key }
-                            })
+                            const res = await fetch(`/get/${val}`, {})
                             if (!res.ok) throw new Error("Download failed")
 
                             const blob = await res.blob()
@@ -184,7 +163,7 @@ allFilesBtn.addEventListener("click", async () => {
                             console.error(err)
                             Toastify({
                                 text: `Error downloading ${val}`,
-                                duration: 5000,
+                                duration: 3000,
                                 gravity: "top",
                                 position: "center"
                             }).showToast()
@@ -203,15 +182,13 @@ allFilesBtn.addEventListener("click", async () => {
                         filename = `${prompt_value}.${old_val_ext}`
 
                         if(prompt_value) {
-                            const res = await fetch(`/rename/${val}?val=${filename}`, {
-                                headers: {"X-API-KEY": key}
-                            })
+                            const res = await fetch(`/rename/${val}?val=${filename}`, {})
 
                             const data = await res.json()
 
                             Toastify({
                                 text: data.info,
-                                duration: 5000,
+                                duration: 3000,
                                 gravity: "top",
                                 position: "center"
                             }).showToast()
@@ -234,14 +211,12 @@ allFilesBtn.addEventListener("click", async () => {
                     deleteBtn.id = 'delete-btn'
                     deleteBtn.addEventListener("click", async () => {
                         if (confirm(`Are you sure you want to delete '${filename}'?`)) {
-                            const res = await fetch(`/delete/${filename}`, {
-                                headers: { "X-API-KEY": key }
-                            })
+                            const res = await fetch(`/delete/${filename}`, {})
                             const resJson = await res.json()
 
                             Toastify({
                                 text: resJson.info,
-                                duration: 5000,
+                                duration: 3000,
                                 gravity: "top",
                                 position: "center"
                             }).showToast()
@@ -286,7 +261,7 @@ allFilesBtn.addEventListener("click", async () => {
             } else {
                 Toastify({
                     text: "No files fetched.",
-                    duration: 5000,
+                    duration: 3000,
                     gravity: "top",
                     position: "center"
                 }).showToast()
@@ -295,7 +270,7 @@ allFilesBtn.addEventListener("click", async () => {
             console.error(err)
             Toastify({
                 text: "Error fetching file list.",
-                duration: 5000,
+                duration: 3000,
                 gravity: "top",
                 position: "center"
             }).showToast()
@@ -305,11 +280,7 @@ allFilesBtn.addEventListener("click", async () => {
 
 
 setInterval(async() => {
-    const key = sessionStorage.getItem("key")
-
-    const res = await fetch("/connection", {
-        headers: {"X-API-KEY": key}
-    })
+    const res = await fetch("/connection", {})
 
     const bodyTag = [...document.querySelector('body').childNodes].filter(item => item.nodeType === Node.ELEMENT_NODE)
     
@@ -327,4 +298,4 @@ setInterval(async() => {
             window.location.reload()
         }
     }
-}, 20_000)
+}, 10_000)
