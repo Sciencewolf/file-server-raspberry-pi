@@ -68,7 +68,7 @@ def serve_data(filename):
 
 @app.route("/connection")
 def check_connection():
-    return 200
+    return jsonify({"response": "ok"}), 200
 
 
 if __name__ == "__main__":

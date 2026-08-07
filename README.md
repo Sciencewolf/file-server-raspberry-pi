@@ -14,6 +14,22 @@
 
 - `sudo docker stop <container_id>`
 
+> [!CAUTION]
+> Remove everything
+
+> Stop all running containers
+- docker stop $(docker ps -q)
+> Remove all containers
+- docker rm $(docker ps -aq)
+> Remove all images
+- docker rmi -f $(docker images -aq)
+> Remove all volumes
+- docker volume rm $(docker volume ls -q)
+> Remove all custom networks
+- docker network rm $(docker network ls -q --filter type=custom)
+> Remove build cache
+- docker builder prune -a -f
+
 > [!NOTE]  
 > You can expose the file server to the internet using [ngrok](https://ngrok.com/ "ngrok site").
 
