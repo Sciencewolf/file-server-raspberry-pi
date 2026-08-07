@@ -9,26 +9,21 @@
 - `sudo docker build -t file-server .`
 - `docker run -d -p 8080:8080 -v /home/data:/app/data file-server `
 
-> [!NOTE]
-> Stop the container
-
-- `sudo docker stop <container_id>`
-
 > [!CAUTION]
 > Remove everything
 
-> Stop all running containers
-- docker stop $(docker ps -q)
-> Remove all containers
-- docker rm $(docker ps -aq)
-> Remove all images
-- docker rmi -f $(docker images -aq)
-> Remove all volumes
-- docker volume rm $(docker volume ls -q)
-> Remove all custom networks
-- docker network rm $(docker network ls -q --filter type=custom)
+> Stop the container
+- `sudo docker stop <container_id>`
+> Remove container
+- `docker rm <_id>`
+> Remove image
+- `docker rmi -f <_id>`
+> Remove volume
+- `docker volume rm <_id>`
+> Remove custom network
+- `docker network rm <_id>`
 > Remove build cache
-- docker builder prune -a -f
+- `docker builder prune -a -f`
 
 > [!NOTE]  
 > You can expose the file server to the internet using [ngrok](https://ngrok.com/ "ngrok site").
