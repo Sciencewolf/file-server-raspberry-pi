@@ -1,12 +1,11 @@
 from flask import Flask, render_template, jsonify, request, send_from_directory
 import os
 from werkzeug.utils import secure_filename
-import dotenv
-import uuid
+
 
 app = Flask(__name__)
 
-app.config["DIR"] = '../data/'
+app.config["DIR"] = '/app/data'
     
 
 @app.route("/")
@@ -18,7 +17,7 @@ def main():
 def upload():
     file = request.files["file"]
     path = app.config['DIR']
-    file.filename = file.filename.split('.')[0] + '_' + str(uuid.uuid4()).split('-')[0] + '.' + file.filename.split('.')[1]
+
     fname = secure_filename(file.filename)
     file.save(os.path.join(path, fname))
 
@@ -69,7 +68,7 @@ def serve_data(filename):
 
 @app.route("/connection")
 def check_connection():
-    return "OK", 200
+    return 200
 
 
 if __name__ == "__main__":
