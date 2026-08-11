@@ -31,7 +31,7 @@ docker run -d \
   --name file-server \
   --restart unless-stopped \
   -p 8080:8080 \
-  -v /home/data:/app/data \
+  -v ~/data:/app/data \
   file-server
 ```
 
