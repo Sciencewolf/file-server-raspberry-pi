@@ -12,6 +12,7 @@ __pycache__/
 .idea
 qr_code.py
 
+
 # Distribution / packaging
 .Python
 build/
