@@ -35,18 +35,6 @@ docker run -d \
   file-server
 ```
 
-The application will be available locally at:
-
-```
-http://localhost:8080
-```
-
-and publicly at:
-
-```
-https://files.martonaron.dev
-```
-
 ---
 
 ## Cloudflare Tunnel
