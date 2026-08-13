@@ -2,58 +2,46 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+        content="width=device-width, initial-scale=1.0"
     >
 
     <meta
         name="theme-color"
-        content="#080b12"
-        id="meta-theme"
+        content="#0b0b0d"
     >
 
     <meta
         name="description"
-        content="Private Raspberry Pi file server"
+        content="Private Raspberry Pi File Server"
     >
 
     <title>Raspberry Pi File Server</title>
 
-
-    <!-- Favicon -->
-
     <link
-        type="image/png"
-        sizes="96x96"
         rel="icon"
+        type="image/png"
         href="https://img.icons8.com/?size=192&id=65371&format=png"
     >
 
-
     <!-- Toastify -->
-
     <link
         rel="stylesheet"
-        type="text/css"
         href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
     >
 
     <script
-        type="text/javascript"
         src="https://cdn.jsdelivr.net/npm/toastify-js"
+        defer
     ></script>
 
-
     <!-- Open Graph -->
-
     <meta
         property="og:title"
         content="Raspberry Pi File Server"
-        id="og-meta-title"
     >
 
     <meta
@@ -63,130 +51,101 @@
 
     <meta
         property="og:description"
-        content="Private file storage running on Raspberry Pi"
+        content="Private Raspberry Pi File Server"
     >
 
     <meta
         property="og:image"
         content="https://img.icons8.com/?size=192&id=65371&format=png"
-        id="og-meta-img"
     >
-
-    <meta
-        property="og:url"
-        content=""
-        id="og-meta-url"
-    >
-
-
-    <!-- Apple -->
-
-    <link
-        rel="shortcut icon"
-        type="image/png"
-        href="https://img.icons8.com/?size=192&id=65371&format=png"
-    >
-
-    <link
-        rel="apple-touch-icon"
-        type="image/png"
-        href="https://img.icons8.com/?size=192&id=65371&format=png"
-    >
-
-
-    <!-- CSS -->
 
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
     >
 
+    <script
+        src="{{ url_for('static', filename='main.js') }}"
+        defer
+    ></script>
 </head>
 
 
 <body>
 
-    <!-- Background -->
+    <!-- =====================================================
+         APP
+    ====================================================== -->
 
-    <div class="background-glow glow-1"></div>
-    <div class="background-glow glow-2"></div>
+    <main class="app">
 
-
-    <main class="server-container">
-
-
-        <!-- =====================================================
+        <!-- =================================================
              HEADER
-             ===================================================== -->
+        ================================================== -->
 
-        <header class="server-header">
+        <header class="header">
 
-            <div class="server-brand">
+            <div class="brand">
 
-                <div class="server-icon">
-                    <span>▣</span>
+                <div class="brand-icon">
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <rect
+                            x="6"
+                            y="3"
+                            width="12"
+                            height="18"
+                            rx="2"
+                        ></rect>
+
+                        <path d="M9 8h6"></path>
+                        <path d="M9 12h6"></path>
+                        <path d="M9 16h4"></path>
+                    </svg>
                 </div>
 
                 <div>
-
-                    <h1>
-                        File Server
-                    </h1>
-
-                    <p>
-                        Raspberry Pi Storage
-                    </p>
-
+                    <h1>File Server</h1>
+                    <p>Raspberry Pi Storage</p>
                 </div>
 
             </div>
 
 
-            <!-- Server status -->
+            <!-- Connection status -->
 
             <div
-                class="server-status online"
-                id="server-status"
+                id="connection-status"
+                class="connection-status online"
             >
-
-                <span
-                    class="status-dot"
-                    id="status-dot"
-                ></span>
-
-                <span
-                    id="status-text"
-                >
-                    Online
-                </span>
-
+                <span class="status-dot"></span>
+                <span id="status-text">Online</span>
             </div>
 
         </header>
 
 
-
-        <!-- =====================================================
+        <!-- =================================================
              UPLOAD
-             ===================================================== -->
+        ================================================== -->
 
         <section class="card">
 
-            <div class="section-header">
+            <div class="card-header">
 
                 <div>
-
-                    <h2>
-                        Upload file
-                    </h2>
+                    <h2>Upload file</h2>
 
                     <p>
                         Store a file on your Raspberry Pi
                     </p>
-
                 </div>
 
-                <div class="section-icon">
+                <div class="card-icon">
                     ↑
                 </div>
 
@@ -195,81 +154,138 @@
 
             <form
                 id="upload-form"
-                class="upload-form"
                 enctype="multipart/form-data"
             >
 
-                <div class="upload-zone">
+                <!-- Hidden real file input -->
 
-                    <input
-                        type="file"
-                        name="file"
-                        id="upload-input"
-                    >
+                <input
+                    type="file"
+                    name="file"
+                    id="upload-input"
+                    hidden
+                >
 
 
-                    <div class="upload-icon">
-                        ↑
+                <!-- Drop zone -->
+
+                <label
+                    for="upload-input"
+                    id="drop-zone"
+                    class="drop-zone"
+                >
+
+                    <div class="drop-icon">
+
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M12 16V4"></path>
+                            <path d="M8 8l4-4 4 4"></path>
+
+                            <path
+                                d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"
+                            ></path>
+                        </svg>
+
                     </div>
 
+                    <strong>Choose a file</strong>
 
-                    <div class="upload-text">
+                    <span>
+                        Click here to browse your device
+                    </span>
 
-                        <strong>
-                            Choose a file
-                        </strong>
+                </label>
 
-                        <span>
-                            Click here to browse your device
-                        </span>
+
+                <!-- Selected file -->
+
+                <div
+                    id="file-preview"
+                    class="file-preview hidden"
+                >
+
+                    <div class="selected-file-info">
+
+                        <div class="file-type-icon">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path
+                                    d="M6 3h8l4 4v14H6z"
+                                ></path>
+
+                                <path
+                                    d="M14 3v5h5"
+                                ></path>
+                            </svg>
+
+                        </div>
+
+                        <div class="selected-file-text">
+
+                            <strong id="file-name">
+                                filename
+                            </strong>
+
+                            <span id="file-size">
+                                0 KB
+                            </span>
+
+                        </div>
 
                     </div>
 
-                </div>
-
-
-                <div class="upload-actions">
 
                     <button
                         type="button"
                         id="remove-file"
-                        class="btn btn-secondary"
-                        hidden
+                        class="remove-btn"
                     >
                         Remove
                     </button>
 
-
-                    <button
-                        type="submit"
-                        id="upload-btn"
-                        class="btn btn-primary"
-                        hidden
-                    >
-                        Upload file
-                    </button>
-
                 </div>
+
+
+                <!-- Upload -->
+
+                <button
+                    type="submit"
+                    id="upload-btn"
+                    class="primary-btn hidden"
+                >
+
+                    <span id="upload-btn-text">
+                        Upload file ↑
+                    </span>
+
+                </button>
 
             </form>
 
         </section>
 
 
-
-        <!-- =====================================================
+        <!-- =================================================
              CREATE NEW FILE
-             ===================================================== -->
+        ================================================== -->
 
         <section class="card">
 
-            <div class="section-header">
+            <div class="card-header compact">
 
                 <div>
 
-                    <h2>
-                        Create new file
-                    </h2>
+                    <h2>Create new file</h2>
 
                     <p>
                         Create an empty text-based file directly on the server
@@ -277,6 +293,8 @@
 
                 </div>
 
+
+                <!-- Custom toggle -->
 
                 <label class="switch">
 
@@ -293,55 +311,34 @@
 
 
             <div
-                class="wrapper-new-file"
                 id="wrapper-new-file"
-                style="display: none;"
+                class="new-file-wrapper hidden"
             >
 
+                <div class="filename-row">
 
-                <div class="file-name-row">
+                    <input
+                        type="text"
+                        id="fname-input"
+                        placeholder="Filename"
+                        autocomplete="off"
+                    >
 
+                    <span class="filename-dot">
+                        .
+                    </span>
 
-                    <div class="input-group">
-
-                        <label for="fname-input">
-                            Filename
-                        </label>
-
-                        <input
-                            type="text"
-                            id="fname-input"
-                            placeholder="example"
-                            autocomplete="off"
-                        >
-
-                    </div>
-
-
-                    <div class="extension-wrapper">
-
-                        <div class="input-group">
-
-                            <label for="file-ext-input">
-                                Extension
-                            </label>
-
-                            <input
-                                type="text"
-                                id="file-ext-input"
-                                placeholder="txt"
-                                autocomplete="off"
-                            >
-
-                        </div>
-
-                    </div>
-
+                    <input
+                        type="text"
+                        id="file-ext-input"
+                        placeholder="txt"
+                        autocomplete="off"
+                    >
 
                     <button
                         type="button"
                         id="btn-clear-filename"
-                        class="btn btn-secondary clear-name-btn"
+                        class="secondary-btn"
                     >
                         Clear
                     </button>
@@ -349,44 +346,29 @@
                 </div>
 
 
-
-                <div class="textarea-group">
-
-                    <div class="input-group">
-
-                        <label for="textarea-new-file">
-                            File content
-                        </label>
-
-                        <textarea
-                            id="textarea-new-file"
-                            rows="10"
-                            placeholder="Start writing..."
-                        ></textarea>
-
-                    </div>
-
-                </div>
+                <textarea
+                    id="textarea-new-file"
+                    rows="10"
+                    placeholder="File content..."
+                ></textarea>
 
 
-
-                <div class="wrapper-btn-action">
-
-                    <button
-                        type="button"
-                        id="btn-clear-textarea"
-                        class="btn btn-secondary"
-                    >
-                        Clear content
-                    </button>
-
+                <div class="new-file-actions">
 
                     <button
                         type="button"
                         id="btn-send-new-file"
-                        class="btn btn-primary"
+                        class="primary-btn"
                     >
                         Create file
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btn-clear-textarea"
+                        class="secondary-btn"
+                    >
+                        Clear content
                     </button>
 
                 </div>
@@ -396,20 +378,17 @@
         </section>
 
 
-
-        <!-- =====================================================
+        <!-- =================================================
              FILE MANAGER
-             ===================================================== -->
+        ================================================== -->
 
-        <section class="card file-manager-card">
+        <section class="card">
 
-            <div class="section-header">
+            <div class="card-header compact">
 
                 <div>
 
-                    <h2>
-                        File manager
-                    </h2>
+                    <h2>File manager</h2>
 
                     <p>
                         Manage files stored on your Raspberry Pi
@@ -417,62 +396,75 @@
 
                 </div>
 
-                <div class="section-icon">
-                    ▤
+                <div class="card-icon">
+                    ☷
                 </div>
 
             </div>
 
 
-            <div class="file-manager-actions">
-
-                <button
-                    type="button"
-                    id="all-files-btn"
-                    class="btn btn-secondary"
-                >
-                    View files
-                </button>
-
-            </div>
+            <button
+                type="button"
+                id="all-files-btn"
+                class="secondary-btn view-files-btn"
+            >
+                View files
+            </button>
 
 
-            <div class="see-all"></div>
+            <!-- Files -->
+
+            <div
+                id="see-all"
+                class="file-list hidden"
+            ></div>
 
         </section>
 
 
-
-        <!-- =====================================================
+        <!-- =================================================
              FOOTER
-             ===================================================== -->
+        ================================================== -->
 
         <footer>
 
-            <span>
-                Raspberry Pi File Server
-            </span>
-
-            <span>
-                •
-            </span>
-
-            <span>
-                Private storage
+            <span id="dev_text">
+                Developed with ❤️ by <a href="https://github.com/Sciencewolf" id="dev_link" target="_blank" rel="noreferrer">&lt;Márton Áron&gt;</a>
             </span>
 
         </footer>
 
-
     </main>
 
 
-    <!-- JavaScript -->
+    <!-- =====================================================
+         DISCONNECTED OVERLAY
+    ====================================================== -->
 
-    <script
-        src="{{ url_for('static', filename='main.js') }}"
-        defer
-    ></script>
+    <div
+        id="offline-overlay"
+        class="offline-overlay hidden"
+    >
+
+        <div class="offline-box">
+
+            <div class="offline-icon">
+                !
+            </div>
+
+            <h2>Disconnected</h2>
+
+            <p>
+                Connection to the file server was lost.
+            </p>
+
+            <span>
+                Trying to reconnect...
+            </span>
+
+        </div>
+
+    </div>
 
 </body>
 

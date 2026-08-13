@@ -1,292 +1,811 @@
-const btn =
-    document.getElementById("upload-btn");
+document.addEventListener("DOMContentLoaded", () => {
 
-const form =
-    document.getElementById("upload-form");
+    /* =====================================================
+       ELEMENTS
+    ===================================================== */
 
-const input =
-    document.getElementById("upload-input");
+    const uploadForm =
+        document.getElementById("upload-form");
 
-const removeBtn =
-    document.getElementById("remove-file");
+    const uploadInput =
+        document.getElementById("upload-input");
+
+    const uploadBtn =
+        document.getElementById("upload-btn");
+
+    const uploadBtnText =
+        document.getElementById("upload-btn-text");
+
+    const removeFileBtn =
+        document.getElementById("remove-file");
+
+    const dropZone =
+        document.getElementById("drop-zone");
+
+    const filePreview =
+        document.getElementById("file-preview");
+
+    const fileName =
+        document.getElementById("file-name");
+
+    const fileSize =
+        document.getElementById("file-size");
+
+    const connectionStatus =
+        document.getElementById("connection-status");
+
+    const statusText =
+        document.getElementById("status-text");
+
+    const offlineOverlay =
+        document.getElementById("offline-overlay");
+
+    const newFileCheckbox =
+        document.getElementById("checkbox-new-file");
+
+    const newFileWrapper =
+        document.getElementById("wrapper-new-file");
+
+    const fileNameInput =
+        document.getElementById("fname-input");
+
+    const fileExtensionInput =
+        document.getElementById("file-ext-input");
+
+    const clearFilenameBtn =
+        document.getElementById("btn-clear-filename");
+
+    const newFileTextarea =
+        document.getElementById("textarea-new-file");
+
+    const createFileBtn =
+        document.getElementById("btn-send-new-file");
+
+    const clearTextareaBtn =
+        document.getElementById("btn-clear-textarea");
+
+    const allFilesBtn =
+        document.getElementById("all-files-btn");
+
+    const fileList =
+        document.getElementById("see-all");
 
 
-const allFilesBtn =
-    document.getElementById("all-files-btn");
+    /* =====================================================
+       TOAST
+    ===================================================== */
 
-const seeAllDiv =
-    document.querySelector(".see-all");
+    function showToast(message, type = "success") {
 
+        let background;
 
-const wrapperNewFile =
-    document.getElementById("wrapper-new-file");
+        if (type === "success") {
+            background = "#22c55e";
+        } else if (type === "error") {
+            background = "#ef4444";
+        } else {
+            background = "#6366f1";
+        }
 
-const newFileTextarea =
-    document.getElementById("textarea-new-file");
+        Toastify({
+            text: message,
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            stopOnFocus: true,
 
-const showNewFileCheckbox =
-    document.getElementById("checkbox-new-file");
+            style: {
+                background: background,
+                borderRadius: "10px",
+                boxShadow: "none"
+            }
 
-const uploadNewFileButton =
-    document.getElementById("btn-send-new-file");
-
-const fnameInput =
-    document.getElementById("fname-input");
-
-const fileExtensionInput =
-    document.getElementById("file-ext-input");
-
-const clearFileName =
-    document.getElementById("btn-clear-filename");
-
-const clearTextarea =
-    document.getElementById("btn-clear-textarea");
-
-
-// ============================================================
-// SERVER STATUS
-// ============================================================
-
-const serverStatus =
-    document.getElementById("server-status");
-
-const statusDot =
-    document.getElementById("status-dot");
-
-const statusText =
-    document.getElementById("status-text");
+        }).showToast();
+    }
 
 
-function setServerStatus(online) {
+    /* =====================================================
+       FILE SIZE
+    ===================================================== */
 
-    if (online) {
+    function formatFileSize(bytes) {
 
-        serverStatus.classList.remove(
+        if (bytes === 0) {
+            return "0 Bytes";
+        }
+
+        const units = [
+            "Bytes",
+            "KB",
+            "MB",
+            "GB",
+            "TB"
+        ];
+
+        const index =
+            Math.floor(
+                Math.log(bytes) / Math.log(1024)
+            );
+
+        return (
+            parseFloat(
+                (
+                    bytes /
+                    Math.pow(1024, index)
+                ).toFixed(2)
+            )
+            + " "
+            + units[index]
+        );
+    }
+
+
+    /* =====================================================
+       SELECTED FILE
+    ===================================================== */
+
+    function showSelectedFile(file) {
+
+        if (!file) {
+            return;
+        }
+
+        fileName.textContent =
+            file.name;
+
+        fileSize.textContent =
+            formatFileSize(file.size);
+
+        filePreview.classList.remove(
+            "hidden"
+        );
+
+        uploadBtn.classList.remove(
+            "hidden"
+        );
+    }
+
+
+    /* =====================================================
+       CLEAR SELECTED FILE
+    ===================================================== */
+
+    function clearSelectedFile() {
+
+        /*
+         * This actually resets the
+         * browser file input.
+         */
+
+        uploadInput.value = "";
+
+        filePreview.classList.add(
+            "hidden"
+        );
+
+        uploadBtn.classList.add(
+            "hidden"
+        );
+
+        fileName.textContent = "";
+
+        fileSize.textContent = "";
+    }
+
+
+    /* =====================================================
+       FILE INPUT
+    ===================================================== */
+
+    uploadInput.addEventListener(
+        "change",
+        () => {
+
+            const file =
+                uploadInput.files[0];
+
+            if (!file) {
+
+                clearSelectedFile();
+
+                return;
+            }
+
+            showSelectedFile(file);
+        }
+    );
+
+
+    /* =====================================================
+       REMOVE SELECTED FILE
+    ===================================================== */
+
+    removeFileBtn.addEventListener(
+        "click",
+        event => {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            clearSelectedFile();
+        }
+    );
+
+
+    /* =====================================================
+       DRAG & DROP
+    ===================================================== */
+
+    [
+        "dragenter",
+        "dragover"
+    ].forEach(eventName => {
+
+        dropZone.addEventListener(
+            eventName,
+            event => {
+
+                event.preventDefault();
+
+                dropZone.classList.add(
+                    "dragover"
+                );
+            }
+        );
+
+    });
+
+
+    [
+        "dragleave",
+        "drop"
+    ].forEach(eventName => {
+
+        dropZone.addEventListener(
+            eventName,
+            event => {
+
+                event.preventDefault();
+
+                dropZone.classList.remove(
+                    "dragover"
+                );
+            }
+        );
+
+    });
+
+
+    dropZone.addEventListener(
+        "drop",
+        event => {
+
+            const files =
+                event.dataTransfer.files;
+
+            if (
+                !files ||
+                files.length === 0
+            ) {
+                return;
+            }
+
+            try {
+
+                const dataTransfer =
+                    new DataTransfer();
+
+                dataTransfer.items.add(
+                    files[0]
+                );
+
+                uploadInput.files =
+                    dataTransfer.files;
+
+                showSelectedFile(
+                    files[0]
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Could not assign dropped file:",
+                    error
+                );
+
+                showToast(
+                    "Could not select dropped file.",
+                    "error"
+                );
+            }
+        }
+    );
+
+
+    /* =====================================================
+       UPLOAD
+    ===================================================== */
+
+    uploadForm.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
+
+            const file =
+                uploadInput.files[0];
+
+            if (!file) {
+
+                showToast(
+                    "Please select a file first.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "file",
+                file
+            );
+
+
+            try {
+
+                uploadBtn.disabled = true;
+
+                uploadBtnText.textContent =
+                    "Uploading...";
+
+
+                const response =
+                    await fetch(
+                        "/upload",
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+
+                let data = {};
+
+                try {
+                    data =
+                        await response.json();
+                } catch {
+                    data = {};
+                }
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.info ||
+                        `Upload failed: ${response.status}`
+                    );
+                }
+
+
+                showToast(
+                    data.info ||
+                    `${file.name} uploaded successfully.`
+                );
+
+
+                /*
+                 * Reset the selected file
+                 * after successful upload.
+                 */
+
+                clearSelectedFile();
+
+
+                /*
+                 * Refresh file list if it
+                 * is currently visible.
+                 */
+
+                if (
+                    !fileList.classList.contains(
+                        "hidden"
+                    )
+                ) {
+                    await loadFiles();
+                }
+
+
+            } catch (error) {
+
+                console.error(
+                    "Upload error:",
+                    error
+                );
+
+                showToast(
+                    error.message ||
+                    "Upload failed.",
+                    "error"
+                );
+
+            } finally {
+
+                uploadBtn.disabled = false;
+
+                uploadBtnText.textContent =
+                    "Upload file ↑";
+            }
+
+        }
+    );
+
+
+    /* =====================================================
+       CREATE NEW FILE TOGGLE
+    ===================================================== */
+
+    newFileCheckbox.addEventListener(
+        "change",
+        () => {
+
+            if (
+                newFileCheckbox.checked
+            ) {
+
+                newFileWrapper.classList.remove(
+                    "hidden"
+                );
+
+            } else {
+
+                newFileWrapper.classList.add(
+                    "hidden"
+                );
+            }
+        }
+    );
+
+
+    /* =====================================================
+       CLEAR FILENAME
+    ===================================================== */
+
+    clearFilenameBtn.addEventListener(
+        "click",
+        () => {
+
+            fileNameInput.value = "";
+
+            fileExtensionInput.value = "";
+
+            fileNameInput.focus();
+        }
+    );
+
+
+    /* =====================================================
+       CLEAR TEXTAREA
+    ===================================================== */
+
+    clearTextareaBtn.addEventListener(
+        "click",
+        () => {
+
+            newFileTextarea.value = "";
+
+            newFileTextarea.focus();
+        }
+    );
+
+
+    /* =====================================================
+       CREATE NEW FILE
+    ===================================================== */
+
+    createFileBtn.addEventListener(
+        "click",
+        async () => {
+
+            const filename =
+                fileNameInput.value.trim();
+
+            const extension =
+                fileExtensionInput.value
+                    .trim()
+                    .replace(".", "");
+
+            const content =
+                newFileTextarea.value;
+
+
+            if (!filename) {
+
+                showToast(
+                    "Please enter a filename.",
+                    "error"
+                );
+
+                fileNameInput.focus();
+
+                return;
+            }
+
+
+            if (!extension) {
+
+                showToast(
+                    "Please enter a file extension.",
+                    "error"
+                );
+
+                fileExtensionInput.focus();
+
+                return;
+            }
+
+
+            const fullFilename =
+                `${filename}.${extension}`;
+
+
+            try {
+
+                createFileBtn.disabled = true;
+
+                createFileBtn.textContent =
+                    "Creating...";
+
+
+                /*
+                 * IMPORTANT:
+                 *
+                 * Your Flask backend uses /create,
+                 * not /create-file.
+                 */
+
+                const response =
+                    await fetch(
+                        `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
+                        {
+                            method: "POST",
+                            body: content
+                        }
+                    );
+
+
+                let data = {};
+
+                try {
+                    data =
+                        await response.json();
+                } catch {
+                    data = {};
+                }
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.info ||
+                        `Create file failed: ${response.status}`
+                    );
+                }
+
+
+                showToast(
+                    data.info ||
+                    `${fullFilename} created successfully.`
+                );
+
+
+                fileNameInput.value = "";
+
+                fileExtensionInput.value = "";
+
+                newFileTextarea.value = "";
+
+
+                newFileCheckbox.checked =
+                    false;
+
+                newFileWrapper.classList.add(
+                    "hidden"
+                );
+
+
+                /*
+                 * Refresh file list.
+                 */
+
+                if (
+                    !fileList.classList.contains(
+                        "hidden"
+                    )
+                ) {
+                    await loadFiles();
+                }
+
+
+            } catch (error) {
+
+                console.error(
+                    "Create file error:",
+                    error
+                );
+
+                showToast(
+                    error.message ||
+                    "Could not create the file.",
+                    "error"
+                );
+
+            } finally {
+
+                createFileBtn.disabled =
+                    false;
+
+                createFileBtn.textContent =
+                    "Create file";
+            }
+        }
+    );
+
+
+    /* =====================================================
+       CONNECTION STATUS
+    ===================================================== */
+
+    async function checkConnection() {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/connection",
+                    {
+                        method: "GET",
+                        cache: "no-store"
+                    }
+                );
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Server unavailable"
+                );
+            }
+
+
+            setOnline();
+
+        } catch (error) {
+
+            setOffline();
+        }
+    }
+
+
+    function setOnline() {
+
+        connectionStatus.classList.remove(
             "offline"
         );
 
-        serverStatus.classList.add(
+        connectionStatus.classList.add(
             "online"
         );
 
         statusText.textContent =
             "Online";
 
-    } else {
 
-        serverStatus.classList.remove(
+        offlineOverlay.classList.add(
+            "hidden"
+        );
+    }
+
+
+    function setOffline() {
+
+        connectionStatus.classList.remove(
             "online"
         );
 
-        serverStatus.classList.add(
+        connectionStatus.classList.add(
             "offline"
         );
 
         statusText.textContent =
             "Offline";
-    }
-}
 
 
-// ============================================================
-// CONNECTION CHECK
-// ============================================================
-
-async function checkConnection() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/connection",
-                {
-                    method: "GET",
-                    cache: "no-store"
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `Server returned ${response.status}`
-            );
-        }
-
-
-        setServerStatus(true);
-
-
-    } catch (error) {
-
-        console.error(
-            "Connection check failed:",
-            error
+        offlineOverlay.classList.remove(
+            "hidden"
         );
-
-
-        setServerStatus(false);
     }
-}
 
 
-// Initial check
+    /*
+     * Check immediately.
+     */
 
-checkConnection();
-
-
-// Check every 10 seconds
-
-setInterval(
-    checkConnection,
-    10000
-);
+    checkConnection();
 
 
-// ============================================================
-// TOAST
-// ============================================================
+    /*
+     * Check every 5 seconds.
+     */
 
-function showToast(message) {
+    setInterval(
+        checkConnection,
+        5000
+    );
 
-    Toastify({
 
-        text: message,
+    /* =====================================================
+       FILE MANAGER
+    ===================================================== */
 
-        duration: 3000,
+    allFilesBtn.addEventListener(
+        "click",
+        async () => {
 
-        gravity: "top",
+            const isHidden =
+                fileList.classList.contains(
+                    "hidden"
+                );
 
-        position: "center",
 
-        stopOnFocus: true,
+            if (!isHidden) {
 
-        style: {
+                fileList.classList.add(
+                    "hidden"
+                );
 
-            background:
-                "linear-gradient(135deg, #4f8cff, #6c5ce7)",
+                allFilesBtn.textContent =
+                    "View files";
 
-            borderRadius:
-                "10px",
+                return;
+            }
 
-            boxShadow:
-                "0 10px 30px rgba(0,0,0,0.3)"
+
+            await loadFiles();
         }
-
-    }).showToast();
-}
+    );
 
 
-// ============================================================
-// CREATE NEW FILE TOGGLE
-// ============================================================
+    /* =====================================================
+       LOAD FILES
+    ===================================================== */
 
-showNewFileCheckbox.addEventListener(
-    "change",
-    () => {
-
-        wrapperNewFile.style.display =
-            showNewFileCheckbox.checked
-                ? "flex"
-                : "none";
-
-    }
-);
-
-
-// ============================================================
-// CLEAR FILENAME
-// ============================================================
-
-clearFileName.addEventListener(
-    "click",
-    () => {
-
-        fnameInput.value = "";
-
-        fileExtensionInput.value = "";
-
-        fnameInput.focus();
-
-    }
-);
-
-
-// ============================================================
-// CLEAR TEXTAREA
-// ============================================================
-
-clearTextarea.addEventListener(
-    "click",
-    () => {
-
-        newFileTextarea.value = "";
-
-        newFileTextarea.focus();
-
-    }
-);
-
-
-// ============================================================
-// CREATE NEW FILE
-// ============================================================
-
-uploadNewFileButton.addEventListener(
-    "click",
-    async () => {
-
-        const filename =
-            fnameInput.value.trim();
-
-        const extension =
-            fileExtensionInput.value
-                .trim()
-                .replace(/^\./, "");
-
-        const content =
-            newFileTextarea.value;
-
-
-        if (!filename) {
-
-            showToast(
-                "Please enter a filename."
-            );
-
-            fnameInput.focus();
-
-            return;
-        }
-
-
-        if (!extension) {
-
-            showToast(
-                "Please enter a file extension."
-            );
-
-            fileExtensionInput.focus();
-
-            return;
-        }
-
+    async function loadFiles() {
 
         try {
 
-            uploadNewFileButton.disabled =
-                true;
+            allFilesBtn.disabled = true;
 
-            uploadNewFileButton.textContent =
-                "Creating...";
+            allFilesBtn.textContent =
+                "Loading...";
 
+
+            /*
+             * IMPORTANT:
+             *
+             * Your Flask backend uses /all.
+             * NOT /files.
+             */
 
             const response =
                 await fetch(
-                    `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
+                    "/all",
                     {
-                        method: "POST",
-                        body: content
+                        cache: "no-store"
                     }
                 );
 
@@ -294,7 +813,7 @@ uploadNewFileButton.addEventListener(
             if (!response.ok) {
 
                 throw new Error(
-                    "Failed to create file"
+                    `Failed to load files: ${response.status}`
                 );
             }
 
@@ -303,901 +822,498 @@ uploadNewFileButton.addEventListener(
                 await response.json();
 
 
-            showToast(
-                data.info
+            renderFiles(data);
+
+
+            fileList.classList.remove(
+                "hidden"
             );
 
 
-            fnameInput.value = "";
+            allFilesBtn.textContent =
+                "Hide files";
 
-            fileExtensionInput.value = "";
-
-            newFileTextarea.value = "";
-
-            showNewFileCheckbox.checked =
-                false;
-
-            wrapperNewFile.style.display =
-                "none";
-
-
-            if (
-                seeAllDiv.children.length > 0
-            ) {
-
-                await loadFiles();
-
-            }
 
         } catch (error) {
 
             console.error(
-                "Error creating file:",
+                "File manager error:",
                 error
             );
 
+
             showToast(
-                "Error creating file."
+                "Could not load files.",
+                "error"
             );
+
+
+            fileList.classList.add(
+                "hidden"
+            );
+
+
+            allFilesBtn.textContent =
+                "View files";
+
 
         } finally {
 
-            uploadNewFileButton.disabled =
+            allFilesBtn.disabled =
                 false;
+        }
+    }
 
-            uploadNewFileButton.textContent =
-                "Create file";
+
+    /* =====================================================
+       RENDER FILES
+    ===================================================== */
+
+    function renderFiles(data) {
+
+        fileList.innerHTML = "";
+
+
+        let files = data;
+
+
+        /*
+         * Support:
+         *
+         * ["file1.txt"]
+         *
+         * and:
+         *
+         * { files: [...] }
+         */
+
+        if (
+            data &&
+            !Array.isArray(data) &&
+            Array.isArray(data.files)
+        ) {
+
+            files =
+                data.files;
         }
 
-    }
-);
+
+        if (!Array.isArray(files)) {
+            files = [];
+        }
 
 
-// ============================================================
-// UPLOAD
-// ============================================================
+        if (files.length === 0) {
 
-form.addEventListener(
-    "submit",
-    async (event) => {
+            const empty =
+                document.createElement(
+                    "div"
+                );
 
-        event.preventDefault();
-
-
-        const file =
-            input.files[0];
+            empty.className =
+                "file-list-item";
 
 
-        if (!file) {
+            const text =
+                document.createElement(
+                    "span"
+                );
 
-            showToast(
-                "Please select a file."
+            text.className =
+                "file-list-name";
+
+            text.textContent =
+                "No files found.";
+
+
+            empty.appendChild(text);
+
+            fileList.appendChild(
+                empty
             );
 
             return;
         }
 
 
-        const data =
-            new FormData();
+        files.forEach(file => {
+
+            const filename =
+                typeof file === "string"
+                    ? file
+                    : file.name;
 
 
-        data.append(
-            "file",
-            file
-        );
+            if (!filename) {
+                return;
+            }
 
 
-        try {
+            /* ---------------------------------------------
+               ITEM
+            --------------------------------------------- */
 
-            btn.disabled =
-                true;
+            const item =
+                document.createElement(
+                    "div"
+                );
 
-            btn.textContent =
-                "Uploading...";
+            item.className =
+                "file-list-item";
 
 
-            const response =
-                await fetch(
-                    "/upload",
-                    {
-                        method: "POST",
-                        body: data
+            /* ---------------------------------------------
+               NAME
+            --------------------------------------------- */
+
+            const name =
+                document.createElement(
+                    "span"
+                );
+
+            name.className =
+                "file-list-name";
+
+            name.textContent =
+                filename;
+
+
+            /* ---------------------------------------------
+               ACTIONS
+            --------------------------------------------- */
+
+            const actions =
+                document.createElement(
+                    "div"
+                );
+
+            actions.className =
+                "file-list-actions";
+
+
+            /* ---------------------------------------------
+               DOWNLOAD
+            --------------------------------------------- */
+
+            const download =
+                document.createElement(
+                    "button"
+                );
+
+            download.type =
+                "button";
+
+            download.className =
+                "file-action download";
+
+            download.textContent =
+                "Download";
+
+
+            download.addEventListener(
+                "click",
+                () => {
+
+                    /*
+                     * Backend endpoint:
+                     * /get/<filename>
+                     */
+
+                    window.location.href =
+                        `/get/${encodeURIComponent(filename)}`;
+                }
+            );
+
+
+            /* ---------------------------------------------
+               RENAME
+            --------------------------------------------- */
+
+            const rename =
+                document.createElement(
+                    "button"
+                );
+
+            rename.type =
+                "button";
+
+            rename.className =
+                "file-action rename";
+
+            rename.textContent =
+                "Rename";
+
+
+            rename.addEventListener(
+                "click",
+                async () => {
+
+                    const currentExtension =
+                        getExtension(filename);
+
+
+                    const currentName =
+                        getFilenameWithoutExtension(
+                            filename
+                        );
+
+
+                    const newName =
+                        prompt(
+                            "Rename file",
+                            currentName
+                        );
+
+
+                    if (
+                        newName === null ||
+                        !newName.trim()
+                    ) {
+                        return;
                     }
+
+
+                    const trimmedName =
+                        newName.trim();
+
+
+                    const newFilename =
+                        currentExtension
+                            ? `${trimmedName}.${currentExtension}`
+                            : trimmedName;
+
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                `/rename/${encodeURIComponent(filename)}?val=${encodeURIComponent(newFilename)}`
+                            );
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (!response.ok) {
+
+                            throw new Error(
+                                data.info ||
+                                "Rename failed."
+                            );
+                        }
+
+
+                        showToast(
+                            data.info ||
+                            "File renamed successfully."
+                        );
+
+
+                        await loadFiles();
+
+
+                    } catch (error) {
+
+                        console.error(
+                            "Rename error:",
+                            error
+                        );
+
+                        showToast(
+                            error.message ||
+                            "Could not rename file.",
+                            "error"
+                        );
+                    }
+                }
+            );
+
+
+            /* ---------------------------------------------
+               PREVIEW
+            --------------------------------------------- */
+
+            const preview =
+                document.createElement(
+                    "a"
                 );
 
+            preview.className =
+                "file-preview-link";
 
-            if (!response.ok) {
+            preview.textContent =
+                "Preview";
 
-                throw new Error(
-                    "Upload failed"
+            preview.href =
+                `/data/${encodeURIComponent(filename)}`;
+
+            preview.target =
+                "_blank";
+
+            preview.rel =
+                "noopener noreferrer";
+
+
+            /* ---------------------------------------------
+               DELETE
+            --------------------------------------------- */
+
+            const deleteBtn =
+                document.createElement(
+                    "button"
                 );
-            }
+
+            deleteBtn.type =
+                "button";
+
+            deleteBtn.className =
+                "file-action delete";
+
+            deleteBtn.textContent =
+                "Delete";
 
 
-            const json =
-                await response.json();
+            deleteBtn.addEventListener(
+                "click",
+                async () => {
+
+                    const confirmed =
+                        confirm(
+                            `Are you sure you want to delete '${filename}'?`
+                        );
 
 
-            showToast(
-                json.info
+                    if (!confirmed) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                `/delete/${encodeURIComponent(filename)}`
+                            );
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (!response.ok) {
+
+                            throw new Error(
+                                data.info ||
+                                "Delete failed."
+                            );
+                        }
+
+
+                        showToast(
+                            data.info ||
+                            "File deleted successfully."
+                        );
+
+
+                        await loadFiles();
+
+
+                    } catch (error) {
+
+                        console.error(
+                            "Delete error:",
+                            error
+                        );
+
+                        showToast(
+                            error.message ||
+                            "Could not delete file.",
+                            "error"
+                        );
+                    }
+                }
             );
 
 
-            input.value = "";
+            /* ---------------------------------------------
+               APPEND
+            --------------------------------------------- */
 
-            btn.hidden =
-                true;
-
-            removeBtn.hidden =
-                true;
-
-
-            resetUploadText();
-
-
-            if (
-                seeAllDiv.children.length > 0
-            ) {
-
-                await loadFiles();
-
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Upload error:",
-                error
+            actions.appendChild(
+                download
             );
 
-            showToast(
-                "Error uploading file."
+            actions.appendChild(
+                rename
             );
 
-        } finally {
+            actions.appendChild(
+                preview
+            );
 
-            btn.disabled =
-                false;
+            actions.appendChild(
+                deleteBtn
+            );
 
-            btn.textContent =
-                "Upload file";
-        }
 
+            item.appendChild(
+                name
+            );
+
+            item.appendChild(
+                actions
+            );
+
+
+            fileList.appendChild(
+                item
+            );
+        });
     }
-);
 
 
-// ============================================================
-// FILE SELECTED
-// ============================================================
+    /* =====================================================
+       FILENAME HELPERS
+    ===================================================== */
 
-input.addEventListener(
-    "change",
-    () => {
+    function getExtension(filename) {
+
+        const lastDot =
+            filename.lastIndexOf(".");
+
 
         if (
-            input.files.length === 0
+            lastDot <= 0 ||
+            lastDot === filename.length - 1
         ) {
-
-            btn.hidden =
-                true;
-
-            removeBtn.hidden =
-                true;
-
-            resetUploadText();
-
-            return;
+            return "";
         }
 
 
-        const file =
-            input.files[0];
-
-
-        btn.hidden =
-            false;
-
-        removeBtn.hidden =
-            false;
-
-
-        const uploadText =
-            document.querySelector(
-                ".upload-text"
-            );
-
-
-        if (uploadText) {
-
-            uploadText.innerHTML = `
-
-                <strong>
-                    ${escapeHtml(file.name)}
-                </strong>
-
-                <span>
-                    ${formatFileSize(file.size)}
-                </span>
-
-            `;
-        }
-
-    }
-);
-
-
-// ============================================================
-// REMOVE SELECTED FILE
-// ============================================================
-
-removeBtn.addEventListener(
-    "click",
-    () => {
-
-        input.value = "";
-
-        btn.hidden =
-            true;
-
-        removeBtn.hidden =
-            true;
-
-        resetUploadText();
-
-    }
-);
-
-
-function resetUploadText() {
-
-    const uploadText =
-        document.querySelector(
-            ".upload-text"
+        return filename.substring(
+            lastDot + 1
         );
-
-
-    if (!uploadText) {
-        return;
     }
 
 
-    uploadText.innerHTML = `
+    function getFilenameWithoutExtension(
+        filename
+    ) {
 
-        <strong>
-            Choose a file
-        </strong>
-
-        <span>
-            Click here to browse your device
-        </span>
-
-    `;
-}
+        const lastDot =
+            filename.lastIndexOf(".");
 
 
-// ============================================================
-// LOAD FILES
-// ============================================================
-
-async function loadFiles() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/all",
-                {
-                    cache: "no-store"
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to fetch files"
-            );
+        if (lastDot <= 0) {
+            return filename;
         }
 
 
-        const data =
-            await response.json();
-
-
-        seeAllDiv.innerHTML = "";
-
-
-        if (
-            !data.files ||
-            data.files.length === 0
-        ) {
-
-            allFilesBtn.textContent =
-                "View files";
-
-            showToast(
-                "No files found."
-            );
-
-            return;
-        }
-
-
-        for (
-            const filename
-            of data.files
-        ) {
-
-            createFileElement(
-                filename
-            );
-        }
-
-
-        allFilesBtn.textContent =
-            "Hide files";
-
-
-    } catch (error) {
-
-        console.error(
-            "Error fetching file list:",
-            error
-        );
-
-        showToast(
-            "Error fetching file list."
+        return filename.substring(
+            0,
+            lastDot
         );
     }
-}
 
-
-// ============================================================
-// CREATE FILE ELEMENT
-// ============================================================
-
-function createFileElement(
-    filename
-) {
-
-    const wrapper =
-        document.createElement(
-            "div"
-        );
-
-
-    wrapper.className =
-        "file-item";
-
-
-    const fileName =
-        document.createElement(
-            "p"
-        );
-
-
-    fileName.textContent =
-        filename;
-
-    fileName.title =
-        filename;
-
-
-    const actions =
-        document.createElement(
-            "div"
-        );
-
-
-    // --------------------------------------------------------
-    // DOWNLOAD
-    // --------------------------------------------------------
-
-    const downloadBtn =
-        document.createElement(
-            "button"
-        );
-
-
-    downloadBtn.textContent =
-        "Download";
-
-    downloadBtn.id =
-        "download-btn";
-
-
-    downloadBtn.addEventListener(
-        "click",
-        async () => {
-
-            try {
-
-                downloadBtn.disabled =
-                    true;
-
-                downloadBtn.textContent =
-                    "Downloading...";
-
-
-                const response =
-                    await fetch(
-                        `/get/${encodeURIComponent(filename)}`
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "Download failed"
-                    );
-                }
-
-
-                const blob =
-                    await response.blob();
-
-
-                const url =
-                    URL.createObjectURL(
-                        blob
-                    );
-
-
-                const anchor =
-                    document.createElement(
-                        "a"
-                    );
-
-
-                anchor.href =
-                    url;
-
-                anchor.download =
-                    filename;
-
-
-                document.body.appendChild(
-                    anchor
-                );
-
-
-                anchor.click();
-
-
-                document.body.removeChild(
-                    anchor
-                );
-
-
-                URL.revokeObjectURL(
-                    url
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Download error:",
-                    error
-                );
-
-                showToast(
-                    `Error downloading ${filename}`
-                );
-
-            } finally {
-
-                downloadBtn.disabled =
-                    false;
-
-                downloadBtn.textContent =
-                    "Download";
-            }
-
-        }
-    );
-
-
-    // --------------------------------------------------------
-    // RENAME
-    // --------------------------------------------------------
-
-    const renameBtn =
-        document.createElement(
-            "button"
-        );
-
-
-    renameBtn.textContent =
-        "Rename";
-
-    renameBtn.id =
-        "rename-btn";
-
-
-    renameBtn.addEventListener(
-        "click",
-        async () => {
-
-            const extension =
-                getFileExtension(
-                    filename
-                );
-
-
-            const currentName =
-                getFileNameWithoutExtension(
-                    filename
-                );
-
-
-            const newName =
-                prompt(
-                    "Enter new filename:",
-                    currentName
-                );
-
-
-            if (
-                !newName ||
-                !newName.trim()
-            ) {
-
-                return;
-            }
-
-
-            const cleanName =
-                newName.trim();
-
-
-            const newFilename =
-                extension
-                    ? `${cleanName}.${extension}`
-                    : cleanName;
-
-
-            try {
-
-                renameBtn.disabled =
-                    true;
-
-
-                const response =
-                    await fetch(
-                        `/rename/${encodeURIComponent(filename)}?val=${encodeURIComponent(newFilename)}`
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "Rename failed"
-                    );
-                }
-
-
-                const data =
-                    await response.json();
-
-
-                showToast(
-                    data.info
-                );
-
-
-                await loadFiles();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Rename error:",
-                    error
-                );
-
-                showToast(
-                    "Error renaming file."
-                );
-
-            } finally {
-
-                renameBtn.disabled =
-                    false;
-            }
-
-        }
-    );
-
-
-    // --------------------------------------------------------
-    // PREVIEW
-    // --------------------------------------------------------
-
-    const preview =
-        document.createElement(
-            "a"
-        );
-
-
-    preview.textContent =
-        "Preview";
-
-    preview.id =
-        "preview-a";
-
-    preview.href =
-        `/data/${encodeURIComponent(filename)}`;
-
-    preview.target =
-        "_blank";
-
-    preview.rel =
-        "noopener noreferrer";
-
-
-    // --------------------------------------------------------
-    // DELETE
-    // --------------------------------------------------------
-
-    const deleteBtn =
-        document.createElement(
-            "button"
-        );
-
-
-    deleteBtn.textContent =
-        "Delete";
-
-    deleteBtn.id =
-        "delete-btn";
-
-
-    deleteBtn.addEventListener(
-        "click",
-        async () => {
-
-            const confirmed =
-                confirm(
-                    `Are you sure you want to delete "${filename}"?`
-                );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            try {
-
-                deleteBtn.disabled =
-                    true;
-
-                deleteBtn.textContent =
-                    "Deleting...";
-
-
-                const response =
-                    await fetch(
-                        `/delete/${encodeURIComponent(filename)}`
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "Delete failed"
-                    );
-                }
-
-
-                const data =
-                    await response.json();
-
-
-                showToast(
-                    data.info
-                );
-
-
-                await loadFiles();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Delete error:",
-                    error
-                );
-
-                showToast(
-                    `Error deleting ${filename}`
-                );
-
-
-                deleteBtn.disabled =
-                    false;
-
-                deleteBtn.textContent =
-                    "Delete";
-            }
-
-        }
-    );
-
-
-    // --------------------------------------------------------
-    // ASSEMBLE
-    // --------------------------------------------------------
-
-    actions.appendChild(
-        downloadBtn
-    );
-
-    actions.appendChild(
-        renameBtn
-    );
-
-    actions.appendChild(
-        preview
-    );
-
-    actions.appendChild(
-        deleteBtn
-    );
-
-
-    wrapper.appendChild(
-        fileName
-    );
-
-    wrapper.appendChild(
-        actions
-    );
-
-
-    seeAllDiv.appendChild(
-        wrapper
-    );
-}
-
-
-// ============================================================
-// SHOW / HIDE FILES
-// ============================================================
-
-allFilesBtn.addEventListener(
-    "click",
-    async () => {
-
-        const isVisible =
-            seeAllDiv.children.length > 0;
-
-
-        if (isVisible) {
-
-            seeAllDiv.innerHTML = "";
-
-            allFilesBtn.textContent =
-                "View files";
-
-            return;
-        }
-
-
-        allFilesBtn.disabled =
-            true;
-
-        allFilesBtn.textContent =
-            "Loading...";
-
-
-        await loadFiles();
-
-
-        allFilesBtn.disabled =
-            false;
-    }
-);
-
-
-// ============================================================
-// HELPERS
-// ============================================================
-
-function getFileExtension(
-    filename
-) {
-
-    const lastDot =
-        filename.lastIndexOf(".");
-
-
-    if (lastDot === -1) {
-        return "";
-    }
-
-
-    return filename.substring(
-        lastDot + 1
-    );
-}
-
-
-function getFileNameWithoutExtension(
-    filename
-) {
-
-    const lastDot =
-        filename.lastIndexOf(".");
-
-
-    if (lastDot === -1) {
-        return filename;
-    }
-
-
-    return filename.substring(
-        0,
-        lastDot
-    );
-}
-
-
-function formatFileSize(
-    bytes
-) {
-
-    if (bytes === 0) {
-        return "0 Bytes";
-    }
-
-
-    const units = [
-        "Bytes",
-        "KB",
-        "MB",
-        "GB",
-        "TB"
-    ];
-
-
-    const index =
-        Math.floor(
-            Math.log(bytes) /
-            Math.log(1024)
-        );
-
-
-    const size =
-        bytes /
-        Math.pow(
-            1024,
-            index
-        );
-
-
-    return `${size.toFixed(
-        index === 0 ? 0 : 2
-    )} ${units[index]}`;
-}
-
-
-function escapeHtml(
-    value
-) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        value;
-
-
-    return div.innerHTML;
-}
+});
