@@ -1,69 +1,479 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <!-- required meta tags -->
-        <meta charset="UTF-8">      
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0">
-        <meta name="theme-color" content="black" id="meta-theme">
-        <meta name="description" content="File server On Raspberry Pi">
 
-        <!-- title -->
-        <title>file server raspberry pi</title>
+<head>
 
-        <!-- favicon -->
-        <link type="image/png" sizes="96x96" rel="icon" href="https://img.icons8.com/?size=192&id=65371&format=png">
+    <meta charset="UTF-8">
 
-        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    >
 
-        <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <meta
+        name="theme-color"
+        content="#080b12"
+        id="meta-theme"
+    >
 
-        <!-- Open Graph meta tags when sharing the webpage -->
-        <meta property="og:title" content="File server" id="og-meta-title">
-        <meta property="og:type" content="website">
-        <meta property="og:description" content="File server project ">
-        <meta property="og:image" content="https://img.icons8.com/?size=192&id=65371&format=png" id="og-meta-img">
-        <meta property="og:url" content="" id="og-meta-url">
+    <meta
+        name="description"
+        content="Private Raspberry Pi file server"
+    >
 
-        <!--for Apple Safari -->
-        <link rel="shortcut icon" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
-        <link rel="apple-touch-icon" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
-        <link rel="apple-touch-startup-image" type="image/png" href="https://img.icons8.com/?size=192&id=65371&format=png">
+    <title>Raspberry Pi File Server</title>
 
-    </head>
 
-    <script src="{{ url_for('static', filename='main.js') }}" defer></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Favicon -->
 
-    <body>
-        <form id="upload-form" enctype="multipart/form-data">
-            <input type="file" name="file" id="upload-input" />
-            <input type="submit" id="upload-btn" value="Upload" hidden/>
-            <button type="button" id="remove-file" hidden>Remove selected file</button>
-        </form>
+    <link
+        type="image/png"
+        sizes="96x96"
+        rel="icon"
+        href="https://img.icons8.com/?size=192&id=65371&format=png"
+    >
 
-        <div class="wrapper-new-file-handler">
-            <label for="checkbox-new-file">Create new file</label>
-            <input type="checkbox" id="checkbox-new-file" />
-        </div>
 
-        <div class="wrapper-new-file" id="wrapper-new-file" style="display: none;">
-            <div class="wrapper-file-names">
-                <input type="text" id="fname-input" placeholder="filename"/> | 
-                <input type="text" id="file-ext-input" placeholder="extension" width="3em" /> | 
-                <button type="button" id="btn-clear-filename">Clear</button>
+    <!-- Toastify -->
+
+    <link
+        rel="stylesheet"
+        type="text/css"
+        href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    >
+
+    <script
+        type="text/javascript"
+        src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+
+
+    <!-- Open Graph -->
+
+    <meta
+        property="og:title"
+        content="Raspberry Pi File Server"
+        id="og-meta-title"
+    >
+
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:description"
+        content="Private file storage running on Raspberry Pi"
+    >
+
+    <meta
+        property="og:image"
+        content="https://img.icons8.com/?size=192&id=65371&format=png"
+        id="og-meta-img"
+    >
+
+    <meta
+        property="og:url"
+        content=""
+        id="og-meta-url"
+    >
+
+
+    <!-- Apple -->
+
+    <link
+        rel="shortcut icon"
+        type="image/png"
+        href="https://img.icons8.com/?size=192&id=65371&format=png"
+    >
+
+    <link
+        rel="apple-touch-icon"
+        type="image/png"
+        href="https://img.icons8.com/?size=192&id=65371&format=png"
+    >
+
+
+    <!-- CSS -->
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+    <!-- Background -->
+
+    <div class="background-glow glow-1"></div>
+    <div class="background-glow glow-2"></div>
+
+
+    <main class="server-container">
+
+
+        <!-- =====================================================
+             HEADER
+             ===================================================== -->
+
+        <header class="server-header">
+
+            <div class="server-brand">
+
+                <div class="server-icon">
+                    <span>▣</span>
+                </div>
+
+                <div>
+
+                    <h1>
+                        File Server
+                    </h1>
+
+                    <p>
+                        Raspberry Pi Storage
+                    </p>
+
+                </div>
+
             </div>
 
-            <textarea id="textarea-new-file" rows="10" cols="50"></textarea>
 
-            <div class="wrapper-btn-action">
-                <button type="button" id="btn-send-new-file">Upload</button>
-                <button type="button" id="btn-clear-textarea">Clear content</button>
+            <!-- Server status -->
+
+            <div
+                class="server-status online"
+                id="server-status"
+            >
+
+                <span
+                    class="status-dot"
+                    id="status-dot"
+                ></span>
+
+                <span
+                    id="status-text"
+                >
+                    Online
+                </span>
+
             </div>
-        </div>
 
-        <button type="button" id="all-files-btn">See all files</button>
+        </header>
 
-        <div class="see-all"></div>
-    </body>
+
+
+        <!-- =====================================================
+             UPLOAD
+             ===================================================== -->
+
+        <section class="card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        Upload file
+                    </h2>
+
+                    <p>
+                        Store a file on your Raspberry Pi
+                    </p>
+
+                </div>
+
+                <div class="section-icon">
+                    ↑
+                </div>
+
+            </div>
+
+
+            <form
+                id="upload-form"
+                class="upload-form"
+                enctype="multipart/form-data"
+            >
+
+                <div class="upload-zone">
+
+                    <input
+                        type="file"
+                        name="file"
+                        id="upload-input"
+                    >
+
+
+                    <div class="upload-icon">
+                        ↑
+                    </div>
+
+
+                    <div class="upload-text">
+
+                        <strong>
+                            Choose a file
+                        </strong>
+
+                        <span>
+                            Click here to browse your device
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="upload-actions">
+
+                    <button
+                        type="button"
+                        id="remove-file"
+                        class="btn btn-secondary"
+                        hidden
+                    >
+                        Remove
+                    </button>
+
+
+                    <button
+                        type="submit"
+                        id="upload-btn"
+                        class="btn btn-primary"
+                        hidden
+                    >
+                        Upload file
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+
+        <!-- =====================================================
+             CREATE NEW FILE
+             ===================================================== -->
+
+        <section class="card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        Create new file
+                    </h2>
+
+                    <p>
+                        Create an empty text-based file directly on the server
+                    </p>
+
+                </div>
+
+
+                <label class="switch">
+
+                    <input
+                        type="checkbox"
+                        id="checkbox-new-file"
+                    >
+
+                    <span class="slider"></span>
+
+                </label>
+
+            </div>
+
+
+            <div
+                class="wrapper-new-file"
+                id="wrapper-new-file"
+                style="display: none;"
+            >
+
+
+                <div class="file-name-row">
+
+
+                    <div class="input-group">
+
+                        <label for="fname-input">
+                            Filename
+                        </label>
+
+                        <input
+                            type="text"
+                            id="fname-input"
+                            placeholder="example"
+                            autocomplete="off"
+                        >
+
+                    </div>
+
+
+                    <div class="extension-wrapper">
+
+                        <div class="input-group">
+
+                            <label for="file-ext-input">
+                                Extension
+                            </label>
+
+                            <input
+                                type="text"
+                                id="file-ext-input"
+                                placeholder="txt"
+                                autocomplete="off"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        id="btn-clear-filename"
+                        class="btn btn-secondary clear-name-btn"
+                    >
+                        Clear
+                    </button>
+
+                </div>
+
+
+
+                <div class="textarea-group">
+
+                    <div class="input-group">
+
+                        <label for="textarea-new-file">
+                            File content
+                        </label>
+
+                        <textarea
+                            id="textarea-new-file"
+                            rows="10"
+                            placeholder="Start writing..."
+                        ></textarea>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="wrapper-btn-action">
+
+                    <button
+                        type="button"
+                        id="btn-clear-textarea"
+                        class="btn btn-secondary"
+                    >
+                        Clear content
+                    </button>
+
+
+                    <button
+                        type="button"
+                        id="btn-send-new-file"
+                        class="btn btn-primary"
+                    >
+                        Create file
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =====================================================
+             FILE MANAGER
+             ===================================================== -->
+
+        <section class="card file-manager-card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>
+                        File manager
+                    </h2>
+
+                    <p>
+                        Manage files stored on your Raspberry Pi
+                    </p>
+
+                </div>
+
+                <div class="section-icon">
+                    ▤
+                </div>
+
+            </div>
+
+
+            <div class="file-manager-actions">
+
+                <button
+                    type="button"
+                    id="all-files-btn"
+                    class="btn btn-secondary"
+                >
+                    View files
+                </button>
+
+            </div>
+
+
+            <div class="see-all"></div>
+
+        </section>
+
+
+
+        <!-- =====================================================
+             FOOTER
+             ===================================================== -->
+
+        <footer>
+
+            <span>
+                Raspberry Pi File Server
+            </span>
+
+            <span>
+                •
+            </span>
+
+            <span>
+                Private storage
+            </span>
+
+        </footer>
+
+
+    </main>
+
+
+    <!-- JavaScript -->
+
+    <script
+        src="{{ url_for('static', filename='main.js') }}"
+        defer
+    ></script>
+
+</body>
 
 </html>

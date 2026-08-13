@@ -6,7 +6,7 @@ set -e
 
 cd /home/aron/file-server-raspberry-pi
 
-/usr/bin/docker build -t file-server .
+/usr/bin/docker build --no-cache -t file-server .
 
 /usr/bin/docker run -d \
     --name file-server \
