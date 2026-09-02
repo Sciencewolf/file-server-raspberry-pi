@@ -3,6 +3,7 @@
 A lightweight Flask-based file server running inside Docker on a Raspberry Pi 4B and exposed securely through a Cloudflare Tunnel.
 
 **Public URL:** https://files.martonaron.dev/
+**CLI version:** https://github.com/Sciencewolf/file-server-cli
 
 ---
 
