@@ -810,21 +810,27 @@ input::placeholder {
     flex-shrink: 0;
 }
 
-
 .file-action {
     height: 34px;
 
-    padding:
-        0
-        11px;
+    padding:0 11px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
     border: 1px solid var(--border-light);
+    border-radius: 10px;
 
     background: #151518;
 
     color: #c4c4cc;
 
     font-size: 12px;
+
+    text-decoration: none;
+
+    cursor: pointer;
 }
 
 

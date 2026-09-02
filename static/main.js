@@ -267,10 +267,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             actions.className = "file-list-actions";
 
+            const downloadBtn = document.createElement("a");
 
-            const downloadBtn = createActionButton("Download", "download", () => {
-                window.location.href = `/get/${encodeURIComponent(filename)}`;
-            });
+            downloadBtn.className = "file-action download";
+            downloadBtn.textContent = "Download";
+            downloadBtn.href = `/get/${encodeURIComponent(filename)}`;
+            downloadBtn.download = filename;
 
 
             const renameBtn = createActionButton("Rename", "rename", () => {
