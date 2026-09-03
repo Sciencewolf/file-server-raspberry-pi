@@ -333,7 +333,8 @@ button:disabled {
 .primary-btn:active:not(:disabled),
 .secondary-btn:active:not(:disabled),
 .remove-btn:active:not(:disabled),
-.file-action:active:not(:disabled) {
+.file-action:active:not(:disabled),
+.file-preview-link:active {
     transform: scale(0.98);
 }
 
@@ -516,44 +517,75 @@ input::placeholder {
     line-height: 1;
     text-decoration: none;
     white-space: nowrap;
-}
-
-.file-action {
     appearance: none;
     outline: none;
+    cursor: pointer;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
 }
 
-.file-action:hover:not(:disabled),
+.file-action.download {
+    border-color: #818cf8;
+}
+
+.file-action.download:hover:not(:disabled) {
+    color: #818cf8;
+    border-color: #818cf8;
+    background: rgba(129, 140, 248, 0.08);
+}
+
+.file-action.rename {
+    border-color: #facc15;
+}
+
+.file-action.rename:hover:not(:disabled) {
+    color: #facc15;
+    border-color: #facc15;
+    background: rgba(250, 204, 21, 0.05);
+}
+
+.file-preview-link {
+    border-color: var(--border-light);
+    color: #c4c4cc;
+}
+
 .file-preview-link:hover {
+    background: #1c1c20;
+    color: white;
+    border-color: #414148;
+}
+
+.file-action.delete {
+    border-color: #f87171;
+}
+
+.file-action.delete:hover:not(:disabled) {
+    color: #f87171;
+    border-color: #f87171;
+    background: rgba(248, 113, 113, 0.05);
+}
+
+.file-action:hover:not(:disabled) {
     background: #1c1c20;
     color: white;
 }
 
 .file-action.download:hover:not(:disabled) {
     color: #818cf8;
-    border-color: rgba(99, 102, 241, 0.4);
-    background: rgba(99, 102, 241, 0.08);
+    background: rgba(129, 140, 248, 0.08);
 }
 
 .file-action.rename:hover:not(:disabled) {
     color: #facc15;
-    border-color: rgba(250, 204, 21, 0.3);
     background: rgba(250, 204, 21, 0.05);
-}
-
-.file-preview-link {
-    color: #a1a1aa;
-}
-
-.file-preview-link:hover {
-    color: white;
-    border-color: #414148;
 }
 
 .file-action.delete:hover:not(:disabled) {
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.3);
-    background: rgba(239, 68, 68, 0.05);
+    background: rgba(248, 113, 113, 0.05);
 }
 
 footer {
