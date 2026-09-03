@@ -27,6 +27,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const allFilesBtn = $("all-files-btn");
     const fileList = $("see-all");
 
+    const icons = {
+        download: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12"></path>
+                <path d="m7 10 5 5 5-5"></path>
+                <path d="M5 21h14"></path>
+            </svg>
+        `,
+        rename: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+            </svg>
+        `,
+        preview: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2.062 12.348a1 1 0 0 1 0-.696C3.423 7.64 7.22 5 12 5c4.78 0 8.577 2.64 9.938 6.652a1 1 0 0 1 0 .696C20.577 16.36 16.78 19 12 19c-4.78 0-8.577-2.64-9.938-6.652"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        `,
+        delete: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4h8v2"></path>
+                <path d="M19 6l-1 14H6L5 6"></path>
+                <path d="M10 11v5"></path>
+                <path d="M14 11v5"></path>
+            </svg>
+        `
+    };
+
     function showToast(message, type = "success") {
         const colors = {
             success: "#22c55e",
@@ -82,7 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function refreshFilesIfVisible() {
-        if (!fileList.classList.contains("hidden")) await loadFiles();
+        if (!fileList.classList.contains("hidden")) {
+            await loadFiles();
+        }
     }
 
     function showSelectedFile(file) {
@@ -138,11 +171,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function downloadFile(filename, button) {
-        const originalText = button.textContent;
-
         try {
             button.disabled = true;
-            button.textContent = "Downloading...";
 
             const response = await fetch(`/get/${encodeURIComponent(filename)}`, {
                 method: "GET",
@@ -180,7 +210,6 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast(error.message || "Could not download file.", "error");
         } finally {
             button.disabled = false;
-            button.textContent = originalText;
         }
     }
 
@@ -194,7 +223,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const newFilename = extension ? `${enteredName.trim()}.${extension}` : enteredName.trim();
 
         try {
-            const data = await fetchJson(`/rename/${encodeURIComponent(filename)}?val=${encodeURIComponent(newFilename)}`);
+            const data = await fetchJson(
+                `/rename/${encodeURIComponent(filename)}?val=${encodeURIComponent(newFilename)}`
+            );
 
             showToast(data.info || "File renamed successfully.");
             await loadFiles();
@@ -209,11 +240,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!confirmed) return;
 
-        const originalText = button.textContent;
-
         try {
             button.disabled = true;
-            button.textContent = "Deleting...";
 
             const data = await fetchJson(`/delete/${encodeURIComponent(filename)}`, {
                 method: "DELETE"
@@ -226,16 +254,17 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast(error.message || "Could not delete file.", "error");
         } finally {
             button.disabled = false;
-            button.textContent = originalText;
         }
     }
 
-    function createActionButton(text, className, onClick) {
+    function createActionButton(icon, className, label, onClick) {
         const button = document.createElement("button");
 
         button.type = "button";
         button.className = `file-action ${className}`;
-        button.textContent = text;
+        button.innerHTML = icon;
+        button.title = label;
+        button.setAttribute("aria-label", label);
 
         button.addEventListener("click", () => onClick(button));
 
@@ -278,21 +307,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
             actions.className = "file-list-actions";
 
-            const downloadBtn = createActionButton("Download", "download", button => {
+            const downloadBtn = createActionButton(icons.download, "download", "Download", button => {
                 downloadFile(filename, button);
             });
 
-            const renameBtn = createActionButton("Rename", "rename", () => {
+            const renameBtn = createActionButton(icons.rename, "rename", "Rename", () => {
                 renameFile(filename);
             });
 
             preview.className = "file-preview-link";
-            preview.textContent = "Preview";
+            preview.innerHTML = icons.preview;
             preview.href = `/data/${encodeURIComponent(filename)}`;
             preview.target = "_blank";
             preview.rel = "noopener noreferrer";
+            preview.title = "Preview";
+            preview.setAttribute("aria-label", "Preview");
 
-            const deleteBtn = createActionButton("Delete", "delete", button => {
+            const deleteBtn = createActionButton(icons.delete, "delete", "Delete", button => {
                 deleteFile(filename, button);
             });
 
@@ -315,7 +346,6 @@ document.addEventListener("DOMContentLoaded", () => {
             allFilesBtn.textContent = "Hide files";
         } catch (error) {
             console.error("File manager error:", error);
-
             showToast(error.message || "Could not load files.", "error");
 
             fileList.classList.add("hidden");
@@ -438,10 +468,13 @@ document.addEventListener("DOMContentLoaded", () => {
             createFileBtn.disabled = true;
             createFileBtn.textContent = "Creating...";
 
-            const data = await fetchJson(`/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`, {
-                method: "POST",
-                body: content
-            });
+            const data = await fetchJson(
+                `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
+                {
+                    method: "POST",
+                    body: content
+                }
+            );
 
             showToast(data.info || `${filename}.${extension} created successfully.`);
 
