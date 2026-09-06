@@ -548,7 +548,7 @@ input::placeholder {
 }
 
 .file-preview-link {
-    border-color: var(--border-light);
+    border-color: white;
     color: #c4c4cc;
 }
 
