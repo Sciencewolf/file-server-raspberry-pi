@@ -805,3 +805,39 @@ footer {
         min-width: 0;
     }
 }
+
+.file-list-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.folder-toggle {
+    width: 12px;
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.folder-icon,
+.file-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+.folder-row {
+    cursor: pointer;
+}
+
+.folder-row:hover {
+    background: var(--surface-hover);
+}
+
+.folder-children {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}

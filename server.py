@@ -1,6 +1,9 @@
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, send_file
 import os
 import sys
+import io
+import shutil
+import zipfile
 import logging
 import uuid
 from werkzeug.utils import secure_filename
@@ -57,6 +60,23 @@ def main():
     return render_template("index.html")
 
 
+# ---------- Path safety helpers ----------
+
+def _resolve_safe_path(relative_path):
+    """
+    Resolves a relative path against the data directory and makes sure
+    the result cannot escape it (path traversal protection).
+    Returns the absolute path, or None if unsafe.
+    """
+    base_dir = os.path.abspath(app.config["DIR"])
+    full_path = os.path.abspath(os.path.join(base_dir, relative_path or ""))
+
+    if full_path != base_dir and not full_path.startswith(base_dir + os.sep):
+        return None
+
+    return full_path
+
+
 def _safe_relative_path(raw_path):
     """
     Sanitizes a client-supplied relative path (e.g. 'myfolder/sub/file.txt')
@@ -81,6 +101,61 @@ def _safe_relative_path(raw_path):
     return parts or None
 
 
+# ---------- Recursive listing ----------
+
+def build_tree(base_dir, rel_path=""):
+    """Recursively builds a tree of files/folders under rel_path."""
+    full_dir = os.path.join(base_dir, rel_path) if rel_path else base_dir
+    items = []
+
+    try:
+        entries = sorted(os.listdir(full_dir))
+    except (FileNotFoundError, NotADirectoryError):
+        return items
+
+    for entry in entries:
+        entry_full = os.path.join(full_dir, entry)
+        entry_rel = f"{rel_path}/{entry}" if rel_path else entry
+
+        if os.path.isdir(entry_full):
+            items.append({
+                "name": entry,
+                "path": entry_rel,
+                "type": "folder",
+                "children": build_tree(base_dir, entry_rel)
+            })
+        else:
+            try:
+                size = os.path.getsize(entry_full)
+            except OSError:
+                size = 0
+
+            items.append({
+                "name": entry,
+                "path": entry_rel,
+                "type": "file",
+                "size": size
+            })
+
+    return items
+
+
+@app.route("/all")
+def get_all():
+    base_dir = app.config["DIR"]
+    tree = build_tree(base_dir)
+
+    logger.info(
+        "[%s] Listing files | top_level_count=%d",
+        request.request_id,
+        len(tree)
+    )
+
+    return jsonify({"files": tree})
+
+
+# ---------- Upload ----------
+
 @app.route("/upload", methods=["POST"])
 def upload():
     base_dir = app.config["DIR"]
@@ -88,7 +163,6 @@ def upload():
     files = request.files.getlist("files")
 
     if not files:
-        # backward compatibility with old single-file clients
         single = request.files.get("file")
         if single:
             files = [single]
@@ -156,13 +230,50 @@ def upload():
     return jsonify({"info": info, "files": uploaded, "failed": failed})
 
 
-@app.route("/get/<filename>")
-def get_file(filename):
-    return send_from_directory(
-        app.config["DIR"],
-        filename
-    )
+# ---------- Download (file or folder-as-zip) ----------
 
+@app.route("/get/<path:filename>")
+def get_file(filename):
+    base_dir = app.config["DIR"]
+    full_path = _resolve_safe_path(filename)
+
+    if full_path is None:
+        return jsonify({"error": "Invalid path"}), 400
+
+    if not os.path.exists(full_path):
+        return jsonify({"error": "Not found"}), 404
+
+    if os.path.isdir(full_path):
+        logger.info(
+            "[%s] Zipping folder for download | path=%r",
+            request.request_id,
+            full_path
+        )
+
+        memory_file = io.BytesIO()
+
+        with zipfile.ZipFile(memory_file, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(full_path):
+                for file in files:
+                    file_full = os.path.join(root, file)
+                    arcname = os.path.relpath(file_full, full_path)
+                    zf.write(file_full, arcname)
+
+        memory_file.seek(0)
+
+        folder_name = os.path.basename(full_path.rstrip("/")) or "download"
+
+        return send_file(
+            memory_file,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{folder_name}.zip"
+        )
+
+    return send_from_directory(base_dir, filename)
+
+
+# ---------- Create ----------
 
 @app.route("/create", methods=["POST"])
 def create():
@@ -187,12 +298,29 @@ def create():
     return jsonify({"info": f"'{filename}.{file_extension}' is created."})
 
 
-@app.route("/rename/<filename>")
-def rename_file(filename):
-    new_filename = request.args.get("val")
+# ---------- Rename (file or folder) ----------
 
-    old_path = os.path.join(app.config["DIR"], filename)
-    new_path = os.path.join(app.config["DIR"], new_filename)
+@app.route("/rename/<path:filename>")
+def rename_file(filename):
+    new_name_raw = request.args.get("val")
+
+    if not new_name_raw:
+        return jsonify({"error": "Missing new name"}), 400
+
+    base_dir = app.config["DIR"]
+    old_path = _resolve_safe_path(filename)
+
+    if old_path is None or not os.path.exists(old_path):
+        return jsonify({"error": "File not found"}), 404
+
+    parent_rel = os.path.dirname(filename)
+    new_name = secure_filename(new_name_raw) or new_name_raw
+    new_rel = f"{parent_rel}/{new_name}" if parent_rel else new_name
+
+    new_path = _resolve_safe_path(new_rel)
+
+    if new_path is None:
+        return jsonify({"error": "Invalid new path"}), 400
 
     logger.info(
         "[%s] Rename requested | old=%r | new=%r",
@@ -212,7 +340,7 @@ def rename_file(filename):
         )
 
         return jsonify({
-            "info": f"'{filename}' is renamed to '{new_filename}' successfully."
+            "info": f"'{filename}' is renamed to '{new_rel}' successfully."
         })
 
     except Exception:
@@ -226,26 +354,23 @@ def rename_file(filename):
         return jsonify({"error": "Rename failed"}), 500
 
 
+# ---------- Delete (file or folder) ----------
+
 @app.route("/delete/<path:filename>", methods=["DELETE"])
 def delete_file(filename):
     request_id = request.request_id
 
     directory = app.config["DIR"]
-    full_path = os.path.join(directory, filename)
+    full_path = _resolve_safe_path(filename)
+
+    if full_path is None:
+        return jsonify({"error": "Invalid path"}), 400
 
     logger.info(
         "[%s] DELETE START | filename=%r | path=%r",
         request_id,
         filename,
         full_path
-    )
-
-    logger.info(
-        "[%s] Directory state BEFORE delete | exists=%s | isfile=%s | files=%r",
-        request_id,
-        os.path.exists(full_path),
-        os.path.isfile(full_path),
-        os.listdir(directory)
     )
 
     try:
@@ -262,31 +387,28 @@ def delete_file(filename):
                 "filename": filename
             }), 404
 
-        os.remove(full_path)
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+        else:
+            os.remove(full_path)
 
         still_exists = os.path.exists(full_path)
 
         logger.info(
-            "[%s] DELETE os.remove finished | still_exists=%s",
+            "[%s] DELETE finished | still_exists=%s",
             request_id,
             still_exists
         )
 
-        logger.info(
-            "[%s] Directory state AFTER delete | files=%r",
-            request_id,
-            os.listdir(directory)
-        )
-
         if still_exists:
             logger.error(
-                "[%s] DELETE anomaly - os.remove returned but file still exists | path=%r",
+                "[%s] DELETE anomaly - item still exists | path=%r",
                 request_id,
                 full_path
             )
 
             return jsonify({
-                "error": "Delete operation completed but file still exists",
+                "error": "Delete operation completed but item still exists",
                 "filename": filename
             }), 500
 
@@ -315,26 +437,17 @@ def delete_file(filename):
         }), 500
 
 
-@app.route("/all")
-def get_all():
-    files = os.listdir(app.config["DIR"])
-
-    logger.info(
-        "[%s] Listing files | count=%d | files=%r",
-        request.request_id,
-        len(files),
-        files
-    )
-
-    return jsonify({"files": files})
-
+# ---------- Preview ----------
 
 @app.route("/data/<path:filename>")
 def serve_data(filename):
-    return send_from_directory(
-        os.path.join(os.getcwd(), "data"),
-        filename
-    )
+    base_dir = app.config["DIR"]
+    full_path = _resolve_safe_path(filename)
+
+    if full_path is None or not os.path.exists(full_path) or os.path.isdir(full_path):
+        return jsonify({"error": "Not found"}), 404
+
+    return send_from_directory(base_dir, filename)
 
 
 @app.route("/connection")

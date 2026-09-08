@@ -124,6 +124,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function encodePath(relPath) {
+        return relPath.split("/").map(encodeURIComponent).join("/");
+    }
+
     // ---------- Multi-file / folder selection ----------
 
     function fileKey(entry) {
@@ -427,11 +431,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---------- File manager ----------
 
-    async function downloadFile(filename, button) {
+    async function downloadFile(relPath, button, downloadName) {
         try {
             button.disabled = true;
 
-            const response = await fetch(`/get/${encodeURIComponent(filename)}`, {
+            const response = await fetch(`/get/${encodePath(relPath)}`, {
                 method: "GET",
                 cache: "no-store"
             });
@@ -452,7 +456,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const downloadLink = document.createElement("a");
 
             downloadLink.href = blobUrl;
-            downloadLink.download = filename;
+            downloadLink.download = downloadName || relPath.split("/").pop();
             downloadLink.style.display = "none";
 
             document.body.appendChild(downloadLink);
@@ -461,54 +465,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-            showToast(`${filename} download started.`);
+            showToast(`${downloadLink.download} download started.`);
         } catch (error) {
-            console.error("[DOWNLOAD] Failed:", filename, error);
-            showToast(error.message || "Could not download file.", "error");
+            console.error("[DOWNLOAD] Failed:", relPath, error);
+            showToast(error.message || "Could not download.", "error");
         } finally {
             button.disabled = false;
         }
     }
 
-    async function renameFile(filename) {
-        const extension = getExtension(filename);
-        const currentName = getFilenameWithoutExtension(filename);
-        const enteredName = prompt("Rename file", currentName);
+    async function renameFile(relPath) {
+        const parts = relPath.split("/");
+        const lastPart = parts.pop();
+        const extension = getExtension(lastPart);
+        const currentName = getFilenameWithoutExtension(lastPart);
+        const enteredName = prompt("Rename", currentName);
 
         if (enteredName === null || !enteredName.trim()) return;
 
-        const newFilename = extension ? `${enteredName.trim()}.${extension}` : enteredName.trim();
+        const newLastPart = extension ? `${enteredName.trim()}.${extension}` : enteredName.trim();
 
         try {
             const data = await fetchJson(
-                `/rename/${encodeURIComponent(filename)}?val=${encodeURIComponent(newFilename)}`
+                `/rename/${encodePath(relPath)}?val=${encodeURIComponent(newLastPart)}`
             );
 
-            showToast(data.info || "File renamed successfully.");
+            showToast(data.info || "Renamed successfully.");
             await loadFiles();
         } catch (error) {
             console.error("Rename error:", error);
-            showToast(error.message || "Could not rename file.", "error");
+            showToast(error.message || "Could not rename.", "error");
         }
     }
 
-    async function deleteFile(filename, button) {
-        const confirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+    async function deleteFile(relPath, button, isFolder) {
+        const label = isFolder ? "folder (and everything inside it)" : "file";
+        const confirmed = confirm(`Are you sure you want to delete this ${label}:\n'${relPath}'?`);
 
         if (!confirmed) return;
 
         try {
             button.disabled = true;
 
-            const data = await fetchJson(`/delete/${encodeURIComponent(filename)}`, {
+            const data = await fetchJson(`/delete/${encodePath(relPath)}`, {
                 method: "DELETE"
             });
 
-            showToast(data.info || "File deleted successfully.");
+            showToast(data.info || "Deleted successfully.");
             await loadFiles();
         } catch (error) {
-            console.error("[DELETE] Failed:", filename, error);
-            showToast(error.message || "Could not delete file.", "error");
+            console.error("[DELETE] Failed:", relPath, error);
+            showToast(error.message || "Could not delete.", "error");
         } finally {
             button.disabled = false;
         }
@@ -539,9 +546,107 @@ document.addEventListener("DOMContentLoaded", () => {
         button.title = label;
         button.setAttribute("aria-label", label);
 
-        button.addEventListener("click", () => onClick(button));
+        button.addEventListener("click", event => {
+            event.stopPropagation();
+            onClick(button);
+        });
 
         return button;
+    }
+
+    function renderTree(items, container, depth = 0) {
+        items.forEach(item => {
+            const row = document.createElement("div");
+            const nameWrap = document.createElement("div");
+            const name = document.createElement("span");
+            const actions = document.createElement("div");
+
+            row.className = "file-list-item";
+            row.style.paddingLeft = `${14 + depth * 20}px`;
+
+            nameWrap.className = "file-list-name-wrap";
+            name.className = "file-list-name";
+            name.textContent = item.name;
+
+            actions.className = "file-list-actions";
+
+            let toggleIcon = null;
+            let childContainer = null;
+
+            if (item.type === "folder") {
+                toggleIcon = document.createElement("span");
+                toggleIcon.className = "folder-toggle";
+                toggleIcon.textContent = "▸";
+
+                const folderIcon = document.createElement("span");
+                folderIcon.className = "folder-icon";
+                folderIcon.textContent = "📁";
+
+                nameWrap.append(toggleIcon, folderIcon, name);
+                row.classList.add("folder-row");
+            } else {
+                const fileIcon = document.createElement("span");
+                fileIcon.className = "file-icon";
+                fileIcon.textContent = "📄";
+
+                nameWrap.append(fileIcon, name);
+            }
+
+            const downloadBtn = createActionButton(
+                icons.download,
+                "download",
+                item.type === "folder" ? "Download ZIP" : "Download",
+                button => {
+                    const downloadName = item.type === "folder" ? `${item.name}.zip` : item.name;
+                    downloadFile(item.path, button, downloadName);
+                }
+            );
+
+            const renameBtn = createActionButton(icons.rename, "rename", "Rename", () => {
+                renameFile(item.path);
+            });
+
+            actions.append(downloadBtn, renameBtn);
+
+            if (item.type === "file") {
+                const preview = document.createElement("a");
+
+                preview.className = "file-preview-link";
+                preview.innerHTML = icons.preview;
+                preview.href = `/data/${encodePath(item.path)}`;
+                preview.target = "_blank";
+                preview.rel = "noopener noreferrer";
+                preview.title = "Preview";
+                preview.setAttribute("aria-label", "Preview");
+                preview.addEventListener("click", event => event.stopPropagation());
+
+                actions.appendChild(preview);
+            }
+
+            const deleteBtn = createActionButton(icons.delete, "delete", "Delete", button => {
+                deleteFile(item.path, button, item.type === "folder");
+            });
+
+            actions.appendChild(deleteBtn);
+
+            row.append(nameWrap, actions);
+            container.appendChild(row);
+
+            if (item.type === "folder") {
+                childContainer = document.createElement("div");
+                childContainer.className = "folder-children hidden";
+
+                renderTree(item.children || [], childContainer, depth + 1);
+                container.appendChild(childContainer);
+
+                row.addEventListener("click", event => {
+                    if (event.target.closest("button") || event.target.closest("a")) return;
+
+                    const nowHidden = childContainer.classList.toggle("hidden");
+                    toggleIcon.textContent = nowHidden ? "▸" : "▾";
+                });
+            }
+        });
     }
 
     function renderFiles(data) {
@@ -563,47 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        files.forEach(file => {
-            const filename = typeof file === "string" ? file : file?.name;
-
-            if (!filename) return;
-
-            const item = document.createElement("div");
-            const name = document.createElement("span");
-            const actions = document.createElement("div");
-            const preview = document.createElement("a");
-
-            item.className = "file-list-item";
-
-            name.className = "file-list-name";
-            name.textContent = filename;
-
-            actions.className = "file-list-actions";
-
-            const downloadBtn = createActionButton(icons.download, "download", "Download", button => {
-                downloadFile(filename, button);
-            });
-
-            const renameBtn = createActionButton(icons.rename, "rename", "Rename", () => {
-                renameFile(filename);
-            });
-
-            preview.className = "file-preview-link";
-            preview.innerHTML = icons.preview;
-            preview.href = `/data/${encodeURIComponent(filename)}`;
-            preview.target = "_blank";
-            preview.rel = "noopener noreferrer";
-            preview.title = "Preview";
-            preview.setAttribute("aria-label", "Preview");
-
-            const deleteBtn = createActionButton(icons.delete, "delete", "Delete", button => {
-                deleteFile(filename, button);
-            });
-
-            actions.append(downloadBtn, renameBtn, preview, deleteBtn);
-            item.append(name, actions);
-            fileList.appendChild(item);
-        });
+        renderTree(files, fileList);
     }
 
     async function loadFiles() {
@@ -638,6 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadFiles();
     });
 
+    // ---------- Connection status ----------
 
     function setConnectionState(online) {
         connectionStatus.classList.toggle("online", online);
