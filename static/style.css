@@ -219,11 +219,18 @@ body {
     font-size: 13px;
 }
 
-.file-preview {
+.drop-zone-buttons {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.drop-zone-buttons .secondary-btn {
+    height: 38px;
+    padding: 0 14px;
+}
+
+.file-preview {
     margin-top: 16px;
     padding: 13px 14px;
     border: 1px solid var(--border);
@@ -231,47 +238,85 @@ body {
     background: #0e0e10;
 }
 
-.selected-file-info {
+.file-preview-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    min-width: 0;
+    margin-bottom: 10px;
 }
 
-.file-type-icon {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
+.file-preview-header span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.file-preview-header .remove-btn {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+}
+
+.file-preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.file-preview-item {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: #1c1c20;
-    color: #d4d4d8;
+    background: var(--surface);
 }
 
-.file-type-icon svg {
-    width: 21px;
-    height: 21px;
-}
-
-.selected-file-text {
+.file-preview-item-info {
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
-.selected-file-text strong {
+.file-preview-item-info strong {
     overflow: hidden;
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 550;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
-.selected-file-text span {
+.file-preview-item-info span {
     margin-top: 2px;
     color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.remove-item-btn {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    background: #161619;
+    color: #8f8f98;
     font-size: 12px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.remove-item-btn:hover {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
 }
 
 button {
@@ -573,21 +618,6 @@ input::placeholder {
     color: white;
 }
 
-.file-action.download:hover:not(:disabled) {
-    color: #818cf8;
-    background: rgba(129, 140, 248, 0.08);
-}
-
-.file-action.rename:hover:not(:disabled) {
-    color: #facc15;
-    background: rgba(250, 204, 21, 0.05);
-}
-
-.file-action.delete:hover:not(:disabled) {
-    color: #f87171;
-    background: rgba(248, 113, 113, 0.05);
-}
-
 footer {
     display: flex;
     align-items: center;
@@ -701,6 +731,11 @@ footer {
         min-height: 165px;
     }
 
+    .drop-zone-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+
     .filename-row {
         flex-wrap: wrap;
     }
@@ -753,14 +788,8 @@ footer {
         padding: 16px;
     }
 
-    .file-preview {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .remove-btn {
-        width: 100%;
+    .file-preview-item {
+        flex-wrap: wrap;
     }
 
     .file-list-actions {

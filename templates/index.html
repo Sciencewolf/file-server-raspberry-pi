@@ -77,8 +77,8 @@
         <section class="card">
             <div class="card-header">
                 <div>
-                    <h2>Upload file</h2>
-                    <p>Store a file on your Raspberry Pi</p>
+                    <h2>Upload files</h2>
+                    <p>Store one or more files, or a whole folder, on your Raspberry Pi</p>
                 </div>
 
                 <div class="card-icon"></div>
@@ -86,9 +86,10 @@
             </div>
 
             <form id="upload-form" enctype="multipart/form-data">
-                <input type="file" name="file" id="upload-input" hidden>
+                <input type="file" name="files" id="upload-input" multiple hidden>
+                <input type="file" name="files" id="folder-input" webkitdirectory directory multiple hidden>
 
-                <label for="upload-input" id="drop-zone" class="drop-zone">
+                <div id="drop-zone" class="drop-zone">
                     <div class="drop-icon">
                         <svg
                             viewBox="0 0 24 24"
@@ -103,35 +104,26 @@
                         </svg>
 
                     </div>
-                    <strong>Choose a file</strong>
-                    <span>Click here to browse your device</span>
-                </label>
+                    <strong>Drop files or a folder here</strong>
+                    <span>or use the buttons below</span>
+
+                    <div class="drop-zone-buttons">
+                        <button type="button" id="choose-files-btn" class="secondary-btn">Choose files</button>
+                        <button type="button" id="choose-folder-btn" class="secondary-btn">Choose folder</button>
+                    </div>
+                </div>
 
                 <div id="file-preview" class="file-preview hidden">
-                    <div class="selected-file-info">
-                        <div class="file-type-icon">
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                            >
-                                <path d="M6 3h8l4 4v14H6z"></path>
-
-                                <path d="M14 3v5h5"></path>
-                            </svg>
-                        </div>
-                        <div class="selected-file-text">
-                            <strong id="file-name">filename</strong>
-                            <span id="file-size">0 KB</span>
-                        </div>
+                    <div class="file-preview-header">
+                        <span id="file-preview-summary">0 files selected</span>
+                        <button type="button" id="remove-all-files" class="remove-btn">Clear all</button>
                     </div>
 
-                    <button type="button" id="remove-file" class="remove-btn">Remove</button>
+                    <div id="file-preview-list" class="file-preview-list"></div>
                 </div>
 
                 <button type="submit" id="upload-btn" class="primary-btn hidden">
-                    <span id="upload-btn-text">Upload file ↑</span>
+                    <span id="upload-btn-text">Upload files ↑</span>
                 </button>
             </form>
         </section>

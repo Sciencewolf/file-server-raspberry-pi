@@ -57,30 +57,103 @@ def main():
     return render_template("index.html")
 
 
+def _safe_relative_path(raw_path):
+    """
+    Sanitizes a client-supplied relative path (e.g. 'myfolder/sub/file.txt')
+    into a list of safe path segments, protecting against path traversal.
+    Returns None if nothing usable remains.
+    """
+    if not raw_path:
+        return None
+
+    raw_path = raw_path.replace("\\", "/")
+    parts = []
+
+    for segment in raw_path.split("/"):
+        if segment in ("", ".", ".."):
+            continue
+
+        safe_segment = secure_filename(segment)
+
+        if safe_segment:
+            parts.append(safe_segment)
+
+    return parts or None
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
-    file = request.files["file"]
-    path = app.config["DIR"]
+    base_dir = app.config["DIR"]
 
-    fname = secure_filename(file.filename)
-    full_path = os.path.join(path, fname)
+    files = request.files.getlist("files")
+
+    if not files:
+        # backward compatibility with old single-file clients
+        single = request.files.get("file")
+        if single:
+            files = [single]
+
+    if not files:
+        return jsonify({"error": "No files provided."}), 400
+
+    raw_paths = request.form.getlist("paths")
+
+    uploaded = []
+    failed = []
+
+    for index, file in enumerate(files):
+        raw_path = raw_paths[index] if index < len(raw_paths) else file.filename
+        parts = _safe_relative_path(raw_path)
+
+        if not parts:
+            failed.append(raw_path or "(unknown)")
+            continue
+
+        fname = parts[-1]
+        sub_dirs = parts[:-1]
+        target_dir = os.path.join(base_dir, *sub_dirs) if sub_dirs else base_dir
+
+        os.makedirs(target_dir, exist_ok=True)
+
+        full_path = os.path.join(target_dir, fname)
+        rel_display = "/".join(parts)
+
+        logger.info(
+            "[%s] Uploading file | relative=%r | path=%r",
+            request.request_id,
+            rel_display,
+            full_path
+        )
+
+        try:
+            file.save(full_path)
+            uploaded.append(rel_display)
+        except Exception:
+            logger.exception(
+                "[%s] Upload FAILED | relative=%r | path=%r",
+                request.request_id,
+                rel_display,
+                full_path
+            )
+            failed.append(rel_display)
 
     logger.info(
-        "[%s] Uploading file | filename=%r | path=%r",
+        "[%s] Upload completed | uploaded=%d | failed=%d",
         request.request_id,
-        fname,
-        full_path
+        len(uploaded),
+        len(failed)
     )
 
-    file.save(full_path)
+    if not uploaded:
+        return jsonify({"error": "Upload failed.", "failed": failed}), 500
 
-    logger.info(
-        "[%s] Upload completed | exists=%s",
-        request.request_id,
-        os.path.exists(full_path)
-    )
+    count = len(uploaded)
+    info = f"{count} file{'s' if count != 1 else ''} successfully uploaded."
 
-    return jsonify({"info": f"'{fname}' successfully uploaded."})
+    if failed:
+        info += f" ({len(failed)} failed)"
+
+    return jsonify({"info": info, "files": uploaded, "failed": failed})
 
 
 @app.route("/get/<filename>")

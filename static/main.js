@@ -3,13 +3,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const uploadForm = $("upload-form");
     const uploadInput = $("upload-input");
+    const folderInput = $("folder-input");
+    const chooseFilesBtn = $("choose-files-btn");
+    const chooseFolderBtn = $("choose-folder-btn");
     const uploadBtn = $("upload-btn");
     const uploadBtnText = $("upload-btn-text");
-    const removeFileBtn = $("remove-file");
     const dropZone = $("drop-zone");
+
     const filePreview = $("file-preview");
-    const fileName = $("file-name");
-    const fileSize = $("file-size");
+    const filePreviewSummary = $("file-preview-summary");
+    const filePreviewList = $("file-preview-list");
+    const removeAllFilesBtn = $("remove-all-files");
 
     const connectionStatus = $("connection-status");
     const statusText = $("status-text");
@@ -26,6 +30,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const allFilesBtn = $("all-files-btn");
     const fileList = $("see-all");
+
+    let selectedFiles = [];
 
     const icons = {
         download: `
@@ -118,57 +124,308 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function showSelectedFile(file) {
-        if (!file) {
-            clearSelectedFile();
+    // ---------- Multi-file / folder selection ----------
+
+    function fileKey(entry) {
+        return `${entry.relativePath}__${entry.file.size}__${entry.file.lastModified}`;
+    }
+
+    function addFiles(newEntries) {
+        const existingKeys = new Set(selectedFiles.map(fileKey));
+
+        newEntries.forEach(entry => {
+            if (!entry || !entry.file) return;
+
+            const key = fileKey(entry);
+
+            if (existingKeys.has(key)) return;
+
+            existingKeys.add(key);
+            selectedFiles.push(entry);
+        });
+
+        renderFilePreview();
+    }
+
+    function removeFileAt(index) {
+        selectedFiles.splice(index, 1);
+        renderFilePreview();
+    }
+
+    function clearSelectedFiles() {
+        selectedFiles = [];
+        uploadInput.value = "";
+        folderInput.value = "";
+        renderFilePreview();
+    }
+
+    function renderFilePreview() {
+        filePreviewList.replaceChildren();
+
+        if (!selectedFiles.length) {
+            filePreview.classList.add("hidden");
+            uploadBtn.classList.add("hidden");
             return;
         }
 
-        fileName.textContent = file.name;
-        fileSize.textContent = formatFileSize(file.size);
+        let totalSize = 0;
+
+        selectedFiles.forEach((entry, index) => {
+            totalSize += entry.file.size;
+
+            const item = document.createElement("div");
+            const info = document.createElement("div");
+            const name = document.createElement("strong");
+            const meta = document.createElement("span");
+            const removeBtn = document.createElement("button");
+
+            item.className = "file-preview-item";
+            info.className = "file-preview-item-info";
+
+            name.textContent = entry.relativePath;
+            meta.textContent = formatFileSize(entry.file.size);
+
+            removeBtn.type = "button";
+            removeBtn.className = "remove-item-btn";
+            removeBtn.textContent = "✕";
+            removeBtn.title = "Remove";
+            removeBtn.setAttribute("aria-label", `Remove ${entry.relativePath}`);
+            removeBtn.addEventListener("click", () => removeFileAt(index));
+
+            info.append(name, meta);
+            item.append(info, removeBtn);
+            filePreviewList.appendChild(item);
+        });
+
+        filePreviewSummary.textContent =
+            `${selectedFiles.length} file${selectedFiles.length > 1 ? "s" : ""} selected (${formatFileSize(totalSize)})`;
+
         filePreview.classList.remove("hidden");
         uploadBtn.classList.remove("hidden");
     }
 
-    function clearSelectedFile() {
+    function traverseFileTree(entry, basePath = "") {
+        return new Promise(resolve => {
+            if (!entry) {
+                resolve([]);
+                return;
+            }
+
+            if (entry.isFile) {
+                entry.file(
+                    file => resolve([{ file, relativePath: basePath + entry.name }]),
+                    () => resolve([])
+                );
+                return;
+            }
+
+            if (entry.isDirectory) {
+                const reader = entry.createReader();
+                let allEntries = [];
+
+                const readBatch = () => {
+                    reader.readEntries(async entries => {
+                        if (!entries.length) {
+                            const results = await Promise.all(
+                                allEntries.map(child => traverseFileTree(child, `${basePath}${entry.name}/`))
+                            );
+
+                            resolve(results.flat());
+                            return;
+                        }
+
+                        allEntries = allEntries.concat(entries);
+                        readBatch();
+                    }, () => resolve([]));
+                };
+
+                readBatch();
+                return;
+            }
+
+            resolve([]);
+        });
+    }
+
+    chooseFilesBtn.addEventListener("click", () => uploadInput.click());
+    chooseFolderBtn.addEventListener("click", () => folderInput.click());
+
+    dropZone.addEventListener("click", event => {
+        if (event.target.closest("button")) return;
+        uploadInput.click();
+    });
+
+    uploadInput.addEventListener("change", () => {
+        const newEntries = Array.from(uploadInput.files).map(file => ({
+            file,
+            relativePath: file.webkitRelativePath || file.name
+        }));
+
+        addFiles(newEntries);
         uploadInput.value = "";
-        fileName.textContent = "";
-        fileSize.textContent = "";
-        filePreview.classList.add("hidden");
-        uploadBtn.classList.add("hidden");
-    }
+    });
 
-    function getExtension(filename) {
-        const lastDot = filename.lastIndexOf(".");
+    folderInput.addEventListener("change", () => {
+        const newEntries = Array.from(folderInput.files).map(file => ({
+            file,
+            relativePath: file.webkitRelativePath || file.name
+        }));
 
-        if (lastDot <= 0 || lastDot === filename.length - 1) return "";
+        addFiles(newEntries);
+        folderInput.value = "";
+    });
 
-        return filename.slice(lastDot + 1);
-    }
+    removeAllFilesBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        clearSelectedFiles();
+    });
 
-    function getFilenameWithoutExtension(filename) {
-        const lastDot = filename.lastIndexOf(".");
+    ["dragenter", "dragover"].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+            dropZone.classList.add("dragover");
+        });
+    });
 
-        if (lastDot <= 0) return filename;
+    ["dragleave", "drop"].forEach(eventName => {
+        dropZone.addEventListener(eventName, event => {
+            event.preventDefault();
+            dropZone.classList.remove("dragover");
+        });
+    });
 
-        return filename.slice(0, lastDot);
-    }
+    dropZone.addEventListener("drop", async event => {
+        const items = event.dataTransfer.items;
 
-    function setConnectionState(online) {
-        connectionStatus.classList.toggle("online", online);
-        connectionStatus.classList.toggle("offline", !online);
-        offlineOverlay.classList.toggle("hidden", online);
-        statusText.textContent = online ? "Online" : "Offline";
-    }
-
-    async function checkConnection() {
         try {
-            await fetchJson("/connection");
-            setConnectionState(true);
-        } catch {
-            setConnectionState(false);
+            let newEntries = [];
+
+            if (items && items.length && items[0].webkitGetAsEntry) {
+                const entries = Array.from(items)
+                    .map(item => item.webkitGetAsEntry())
+                    .filter(Boolean);
+
+                const results = await Promise.all(entries.map(entry => traverseFileTree(entry)));
+                newEntries = results.flat();
+            } else {
+                newEntries = Array.from(event.dataTransfer.files).map(file => ({
+                    file,
+                    relativePath: file.name
+                }));
+            }
+
+            addFiles(newEntries);
+        } catch (error) {
+            console.error("Could not read dropped files/folder:", error);
+            showToast("Could not read dropped files.", "error");
         }
-    }
+    });
+
+    uploadForm.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        if (!selectedFiles.length) {
+            showToast("Please select at least one file.", "error");
+            return;
+        }
+
+        const formData = new FormData();
+
+        selectedFiles.forEach(entry => {
+            formData.append("files", entry.file);
+            formData.append("paths", entry.relativePath);
+        });
+
+        const count = selectedFiles.length;
+
+        try {
+            uploadBtn.disabled = true;
+            uploadBtnText.textContent = `Uploading ${count} file${count > 1 ? "s" : ""}...`;
+
+            const data = await fetchJson("/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            showToast(data.info || `${count} file${count > 1 ? "s" : ""} uploaded successfully.`);
+
+            clearSelectedFiles();
+            await refreshFilesIfVisible();
+        } catch (error) {
+            console.error("Upload error:", error);
+            showToast(error.message || "Upload failed.", "error");
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtnText.textContent = "Upload files ↑";
+        }
+    });
+
+    // ---------- Create new file ----------
+
+    newFileCheckbox.addEventListener("change", () => {
+        newFileWrapper.classList.toggle("hidden", !newFileCheckbox.checked);
+    });
+
+    clearFilenameBtn.addEventListener("click", () => {
+        fileNameInput.value = "";
+        fileExtensionInput.value = "";
+        fileNameInput.focus();
+    });
+
+    clearTextareaBtn.addEventListener("click", () => {
+        newFileTextarea.value = "";
+        newFileTextarea.focus();
+    });
+
+    createFileBtn.addEventListener("click", async () => {
+        const filename = fileNameInput.value.trim();
+        const extension = fileExtensionInput.value.trim().replace(/^\./, "");
+        const content = newFileTextarea.value;
+
+        if (!filename) {
+            showToast("Please enter a filename.", "error");
+            fileNameInput.focus();
+            return;
+        }
+
+        if (!extension) {
+            showToast("Please enter a file extension.", "error");
+            fileExtensionInput.focus();
+            return;
+        }
+
+        try {
+            createFileBtn.disabled = true;
+            createFileBtn.textContent = "Creating...";
+
+            const data = await fetchJson(
+                `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
+                {
+                    method: "POST",
+                    body: content
+                }
+            );
+
+            showToast(data.info || `${filename}.${extension} created successfully.`);
+
+            fileNameInput.value = "";
+            fileExtensionInput.value = "";
+            newFileTextarea.value = "";
+            newFileCheckbox.checked = false;
+            newFileWrapper.classList.add("hidden");
+
+            await refreshFilesIfVisible();
+        } catch (error) {
+            console.error("Create file error:", error);
+            showToast(error.message || "Could not create the file.", "error");
+        } finally {
+            createFileBtn.disabled = false;
+            createFileBtn.textContent = "Create file";
+        }
+    });
+
+    // ---------- File manager ----------
 
     async function downloadFile(filename, button) {
         try {
@@ -255,6 +512,22 @@ document.addEventListener("DOMContentLoaded", () => {
         } finally {
             button.disabled = false;
         }
+    }
+
+    function getExtension(filename) {
+        const lastDot = filename.lastIndexOf(".");
+
+        if (lastDot <= 0 || lastDot === filename.length - 1) return "";
+
+        return filename.slice(lastDot + 1);
+    }
+
+    function getFilenameWithoutExtension(filename) {
+        const lastDot = filename.lastIndexOf(".");
+
+        if (lastDot <= 0) return filename;
+
+        return filename.slice(0, lastDot);
     }
 
     function createActionButton(icon, className, label, onClick) {
@@ -355,145 +628,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    uploadInput.addEventListener("change", () => {
-        showSelectedFile(uploadInput.files[0]);
-    });
-
-    removeFileBtn.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        clearSelectedFile();
-    });
-
-    ["dragenter", "dragover"].forEach(eventName => {
-        dropZone.addEventListener(eventName, event => {
-            event.preventDefault();
-            dropZone.classList.add("dragover");
-        });
-    });
-
-    ["dragleave", "drop"].forEach(eventName => {
-        dropZone.addEventListener(eventName, event => {
-            event.preventDefault();
-            dropZone.classList.remove("dragover");
-        });
-    });
-
-    dropZone.addEventListener("drop", event => {
-        const file = event.dataTransfer.files?.[0];
-
-        if (!file) return;
-
-        try {
-            const dataTransfer = new DataTransfer();
-
-            dataTransfer.items.add(file);
-            uploadInput.files = dataTransfer.files;
-
-            showSelectedFile(file);
-        } catch (error) {
-            console.error("Could not assign dropped file:", error);
-            showToast("Could not select dropped file.", "error");
-        }
-    });
-
-    uploadForm.addEventListener("submit", async event => {
-        event.preventDefault();
-
-        const file = uploadInput.files[0];
-
-        if (!file) {
-            showToast("Please select a file first.", "error");
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-            uploadBtn.disabled = true;
-            uploadBtnText.textContent = "Uploading...";
-
-            const data = await fetchJson("/upload", {
-                method: "POST",
-                body: formData
-            });
-
-            showToast(data.info || `${file.name} uploaded successfully.`);
-
-            clearSelectedFile();
-            await refreshFilesIfVisible();
-        } catch (error) {
-            console.error("Upload error:", error);
-            showToast(error.message || "Upload failed.", "error");
-        } finally {
-            uploadBtn.disabled = false;
-            uploadBtnText.textContent = "Upload file ↑";
-        }
-    });
-
-    newFileCheckbox.addEventListener("change", () => {
-        newFileWrapper.classList.toggle("hidden", !newFileCheckbox.checked);
-    });
-
-    clearFilenameBtn.addEventListener("click", () => {
-        fileNameInput.value = "";
-        fileExtensionInput.value = "";
-        fileNameInput.focus();
-    });
-
-    clearTextareaBtn.addEventListener("click", () => {
-        newFileTextarea.value = "";
-        newFileTextarea.focus();
-    });
-
-    createFileBtn.addEventListener("click", async () => {
-        const filename = fileNameInput.value.trim();
-        const extension = fileExtensionInput.value.trim().replace(/^\./, "");
-        const content = newFileTextarea.value;
-
-        if (!filename) {
-            showToast("Please enter a filename.", "error");
-            fileNameInput.focus();
-            return;
-        }
-
-        if (!extension) {
-            showToast("Please enter a file extension.", "error");
-            fileExtensionInput.focus();
-            return;
-        }
-
-        try {
-            createFileBtn.disabled = true;
-            createFileBtn.textContent = "Creating...";
-
-            const data = await fetchJson(
-                `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
-                {
-                    method: "POST",
-                    body: content
-                }
-            );
-
-            showToast(data.info || `${filename}.${extension} created successfully.`);
-
-            fileNameInput.value = "";
-            fileExtensionInput.value = "";
-            newFileTextarea.value = "";
-            newFileCheckbox.checked = false;
-            newFileWrapper.classList.add("hidden");
-
-            await refreshFilesIfVisible();
-        } catch (error) {
-            console.error("Create file error:", error);
-            showToast(error.message || "Could not create the file.", "error");
-        } finally {
-            createFileBtn.disabled = false;
-            createFileBtn.textContent = "Create file";
-        }
-    });
-
     allFilesBtn.addEventListener("click", async () => {
         if (!fileList.classList.contains("hidden")) {
             fileList.classList.add("hidden");
@@ -503,6 +637,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
         await loadFiles();
     });
+
+
+    function setConnectionState(online) {
+        connectionStatus.classList.toggle("online", online);
+        connectionStatus.classList.toggle("offline", !online);
+        offlineOverlay.classList.toggle("hidden", online);
+        statusText.textContent = online ? "Online" : "Offline";
+    }
+
+    async function checkConnection() {
+        try {
+            await fetchJson("/connection");
+            setConnectionState(true);
+        } catch {
+            setConnectionState(false);
+        }
+    }
 
     checkConnection();
     setInterval(checkConnection, 20_000);
