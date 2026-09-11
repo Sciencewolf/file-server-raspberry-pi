@@ -128,8 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return relPath.split("/").map(encodeURIComponent).join("/");
     }
 
-    // ---------- Multi-file / folder selection ----------
-
     function fileKey(entry) {
         return `${entry.relativePath}__${entry.file.size}__${entry.file.lastModified}`;
     }
@@ -365,7 +363,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ---------- Create new file ----------
 
     newFileCheckbox.addEventListener("change", () => {
         newFileWrapper.classList.toggle("hidden", !newFileCheckbox.checked);
@@ -429,7 +426,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ---------- File manager ----------
 
     async function downloadFile(relPath, button, downloadName) {
         try {
@@ -456,7 +452,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const downloadLink = document.createElement("a");
 
             downloadLink.href = blobUrl;
-            downloadLink.download = downloadName || relPath.split("/").pop();
+            downloadLink.download = downloadName || relPath?.split("/").pop();
             downloadLink.style.display = "none";
 
             document.body.appendChild(downloadLink);
@@ -701,9 +697,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         await loadFiles();
+
+        const interval = setInterval(async () => {
+            if (fileList.classList.contains("hidden")) {
+                clearInterval(interval);
+                return;
+            }
+
+            await loadFiles();
+        }, 3_000);
     });
 
-    // ---------- Connection status ----------
 
     function setConnectionState(online) {
         connectionStatus.classList.toggle("online", online);

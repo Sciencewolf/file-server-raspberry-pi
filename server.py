@@ -60,14 +60,7 @@ def main():
     return render_template("index.html")
 
 
-# ---------- Path safety helpers ----------
-
 def _resolve_safe_path(relative_path):
-    """
-    Resolves a relative path against the data directory and makes sure
-    the result cannot escape it (path traversal protection).
-    Returns the absolute path, or None if unsafe.
-    """
     base_dir = os.path.abspath(app.config["DIR"])
     full_path = os.path.abspath(os.path.join(base_dir, relative_path or ""))
 
@@ -78,11 +71,6 @@ def _resolve_safe_path(relative_path):
 
 
 def _safe_relative_path(raw_path):
-    """
-    Sanitizes a client-supplied relative path (e.g. 'myfolder/sub/file.txt')
-    into a list of safe path segments, protecting against path traversal.
-    Returns None if nothing usable remains.
-    """
     if not raw_path:
         return None
 
@@ -101,10 +89,7 @@ def _safe_relative_path(raw_path):
     return parts or None
 
 
-# ---------- Recursive listing ----------
-
 def build_tree(base_dir, rel_path=""):
-    """Recursively builds a tree of files/folders under rel_path."""
     full_dir = os.path.join(base_dir, rel_path) if rel_path else base_dir
     items = []
 
@@ -153,8 +138,6 @@ def get_all():
 
     return jsonify({"files": tree})
 
-
-# ---------- Upload ----------
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -230,8 +213,6 @@ def upload():
     return jsonify({"info": info, "files": uploaded, "failed": failed})
 
 
-# ---------- Download (file or folder-as-zip) ----------
-
 @app.route("/get/<path:filename>")
 def get_file(filename):
     base_dir = app.config["DIR"]
@@ -273,8 +254,6 @@ def get_file(filename):
     return send_from_directory(base_dir, filename)
 
 
-# ---------- Create ----------
-
 @app.route("/create", methods=["POST"])
 def create():
     filename = request.args.get("fname") or "plain"
@@ -297,8 +276,6 @@ def create():
 
     return jsonify({"info": f"'{filename}.{file_extension}' is created."})
 
-
-# ---------- Rename (file or folder) ----------
 
 @app.route("/rename/<path:filename>")
 def rename_file(filename):
@@ -353,8 +330,6 @@ def rename_file(filename):
 
         return jsonify({"error": "Rename failed"}), 500
 
-
-# ---------- Delete (file or folder) ----------
 
 @app.route("/delete/<path:filename>", methods=["DELETE"])
 def delete_file(filename):
@@ -436,8 +411,6 @@ def delete_file(filename):
             "message": str(e)
         }), 500
 
-
-# ---------- Preview ----------
 
 @app.route("/data/<path:filename>")
 def serve_data(filename):
