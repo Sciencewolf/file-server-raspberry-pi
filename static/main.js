@@ -724,7 +724,5 @@ document.addEventListener("DOMContentLoaded", () => {
             setConnectionState(false);
         }
     }
-
-    checkConnection();
     setInterval(checkConnection, 20_000);
 });
