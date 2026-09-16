@@ -9,7 +9,7 @@ import uuid
 from werkzeug.utils import secure_filename
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
 app.config["DIR"] = "/app/data"
 
@@ -426,6 +426,11 @@ def serve_data(filename):
 @app.route("/connection")
 def check_connection():
     return jsonify({"response": "ok"}), 200
+
+
+@app.route("/robots.txt")
+def serve_robots_txt():
+    return send_from_directory(app.static_folder, "robots.txt")
 
 
 if __name__ == "__main__":
