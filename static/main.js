@@ -1,6 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
     const $ = id => document.getElementById(id);
 
+    // --- Config ---------------------------------------------------------------
+
+    const API = {
+        health: "/api/health",
+        files: "/api/files",
+        file: relPath => `/api/files/${encodePath(relPath)}`
+    };
+
+    const FILE_POLL_MS = 3_000;
+    const CONNECTION_POLL_MS = 20_000;
+    const CONNECTION_TIMEOUT_MS = 5_000;
+
+    // --- DOM ------------------------------------------------------------------
+
     const uploadForm = $("upload-form");
     const uploadInput = $("upload-input");
     const folderInput = $("folder-input");
@@ -31,7 +45,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const allFilesBtn = $("all-files-btn");
     const fileList = $("see-all");
 
+    // --- State ----------------------------------------------------------------
+
     let selectedFiles = [];
+
+    const expandedFolders = new Set(); // survives re-renders during polling
+    let lastTreeJson = null;           // skip re-render when nothing changed
+    let isLoadingFiles = false;
+    let pollTimer = null;
 
     const icons = {
         download: `
@@ -64,6 +85,8 @@ document.addEventListener("DOMContentLoaded", () => {
         `
     };
 
+    // --- Helpers --------------------------------------------------------------
+
     function showToast(message, type = "success") {
         const colors = {
             success: "#22c55e",
@@ -85,6 +108,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }).showToast();
     }
 
+    function plural(count, word = "file") {
+        return `${count} ${word}${count === 1 ? "" : "s"}`;
+    }
+
     function formatFileSize(bytes) {
         if (!bytes) return "0 Bytes";
 
@@ -95,7 +122,35 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${value} ${units[index]}`;
     }
 
+    function encodePath(relPath) {
+        return relPath.split("/").map(encodeURIComponent).join("/");
+    }
+
+    function getExtension(filename) {
+        const lastDot = filename.lastIndexOf(".");
+        if (lastDot <= 0 || lastDot === filename.length - 1) return "";
+        return filename.slice(lastDot + 1);
+    }
+
+    function getFilenameWithoutExtension(filename) {
+        const lastDot = filename.lastIndexOf(".");
+        if (lastDot <= 0) return filename;
+        return filename.slice(0, lastDot);
+    }
+
+    // --- HTTP -----------------------------------------------------------------
+
+    class ApiError extends Error {
+        constructor(message, status, requestId) {
+            super(message);
+            this.name = "ApiError";
+            this.status = status;
+            this.requestId = requestId;
+        }
+    }
+
     async function parseResponse(response) {
+        if (response.status === 204) return {};
         try {
             return await response.json();
         } catch {
@@ -103,30 +158,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function fetchJson(url, options = {}) {
-        const response = await fetch(url, {
-            cache: "no-store",
-            ...options
-        });
-
+    async function request(url, options = {}) {
+        const response = await fetch(url, { cache: "no-store", ...options });
         const data = await parseResponse(response);
 
         if (!response.ok) {
-            throw new Error(data.error || data.info || data.message || `Request failed with status ${response.status}`);
+            throw new ApiError(
+                data.error || `Request failed with status ${response.status}`,
+                response.status,
+                data.request_id || response.headers.get("X-Request-ID")
+            );
         }
 
-        return data;
+        return { status: response.status, data };
     }
 
-    async function refreshFilesIfVisible() {
-        if (!fileList.classList.contains("hidden")) {
-            await loadFiles();
-        }
+    function errorMessage(error, fallback) {
+        const message = error?.message || fallback;
+        return error?.requestId ? `${message} (ref: ${error.requestId})` : message;
     }
 
-    function encodePath(relPath) {
-        return relPath.split("/").map(encodeURIComponent).join("/");
+    async function fileExists(relPath) {
+        const response = await fetch(API.file(relPath), { method: "HEAD", cache: "no-store" });
+        return response.ok;
     }
+
+    // --- Upload selection -----------------------------------------------------
 
     function fileKey(entry) {
         return `${entry.relativePath}__${entry.file.size}__${entry.file.lastModified}`;
@@ -139,7 +196,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!entry || !entry.file) return;
 
             const key = fileKey(entry);
-
             if (existingKeys.has(key)) return;
 
             existingKeys.add(key);
@@ -200,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         filePreviewSummary.textContent =
-            `${selectedFiles.length} file${selectedFiles.length > 1 ? "s" : ""} selected (${formatFileSize(totalSize)})`;
+            `${plural(selectedFiles.length)} selected (${formatFileSize(totalSize)})`;
 
         filePreview.classList.remove("hidden");
         uploadBtn.classList.remove("hidden");
@@ -249,6 +305,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function entriesFromInput(input) {
+        return Array.from(input.files).map(file => ({
+            file,
+            relativePath: file.webkitRelativePath || file.name
+        }));
+    }
+
     chooseFilesBtn.addEventListener("click", () => uploadInput.click());
     chooseFolderBtn.addEventListener("click", () => folderInput.click());
 
@@ -258,22 +321,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     uploadInput.addEventListener("change", () => {
-        const newEntries = Array.from(uploadInput.files).map(file => ({
-            file,
-            relativePath: file.webkitRelativePath || file.name
-        }));
-
-        addFiles(newEntries);
+        addFiles(entriesFromInput(uploadInput));
         uploadInput.value = "";
     });
 
     folderInput.addEventListener("change", () => {
-        const newEntries = Array.from(folderInput.files).map(file => ({
-            file,
-            relativePath: file.webkitRelativePath || file.name
-        }));
-
-        addFiles(newEntries);
+        addFiles(entriesFromInput(folderInput));
         folderInput.value = "";
     });
 
@@ -301,7 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const items = event.dataTransfer.items;
 
         try {
-            let newEntries = [];
+            let newEntries;
 
             if (items && items.length && items[0].webkitGetAsEntry) {
                 const entries = Array.from(items)
@@ -324,6 +377,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // --- Upload: POST /api/files ------------------------------------------------
+
     uploadForm.addEventListener("submit", async event => {
         event.preventDefault();
 
@@ -339,30 +394,42 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("paths", entry.relativePath);
         });
 
-        const count = selectedFiles.length;
-
         try {
             uploadBtn.disabled = true;
-            uploadBtnText.textContent = `Uploading ${count} file${count > 1 ? "s" : ""}...`;
+            uploadBtnText.textContent = `Uploading ${plural(selectedFiles.length)}...`;
 
-            const data = await fetchJson("/upload", {
+            const { status, data } = await request(API.files, {
                 method: "POST",
                 body: formData
             });
 
-            showToast(data.info || `${count} file${count > 1 ? "s" : ""} uploaded successfully.`);
+            const uploaded = data.uploaded?.length ?? 0;
+            const failed = data.failed ?? [];
 
-            clearSelectedFiles();
+            if (status === 207) {
+                // Partial success: keep only the failed files selected, so they can be retried
+                const failedPaths = new Set(failed.map(f => f.path));
+                selectedFiles = selectedFiles.filter(entry => failedPaths.has(entry.relativePath));
+                renderFilePreview();
+
+                console.warn("Upload partially failed:", failed);
+                showToast(`${plural(uploaded)} uploaded, ${failed.length} failed.`, "error");
+            } else {
+                clearSelectedFiles();
+                showToast(`${plural(uploaded)} uploaded successfully.`);
+            }
+
             await refreshFilesIfVisible();
         } catch (error) {
             console.error("Upload error:", error);
-            showToast(error.message || "Upload failed.", "error");
+            showToast(errorMessage(error, "Upload failed."), "error");
         } finally {
             uploadBtn.disabled = false;
             uploadBtnText.textContent = "Upload files ↑";
         }
     });
 
+    // --- Create file: PUT /api/files/<path> -------------------------------------
 
     newFileCheckbox.addEventListener("change", () => {
         newFileWrapper.classList.toggle("hidden", !newFileCheckbox.checked);
@@ -396,19 +463,25 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        const relPath = `${filename}.${extension}`;
+
         try {
             createFileBtn.disabled = true;
             createFileBtn.textContent = "Creating...";
 
-            const data = await fetchJson(
-                `/create?fname=${encodeURIComponent(filename)}&ext=${encodeURIComponent(extension)}`,
-                {
-                    method: "POST",
-                    body: content
-                }
-            );
+            // PUT overwrites by design, so ask first if the file already exists
+            if (await fileExists(relPath) && !confirm(`'${relPath}' already exists. Overwrite it?`)) {
+                return;
+            }
 
-            showToast(data.info || `${filename}.${extension} created successfully.`);
+            const { status, data } = await request(API.file(relPath), {
+                method: "PUT",
+                headers: { "Content-Type": "text/plain; charset=utf-8" },
+                body: content
+            });
+
+            const savedPath = data.path || relPath;
+            showToast(status === 201 ? `'${savedPath}' created.` : `'${savedPath}' overwritten.`);
 
             fileNameInput.value = "";
             fileExtensionInput.value = "";
@@ -419,126 +492,108 @@ document.addEventListener("DOMContentLoaded", () => {
             await refreshFilesIfVisible();
         } catch (error) {
             console.error("Create file error:", error);
-            showToast(error.message || "Could not create the file.", "error");
+            showToast(errorMessage(error, "Could not create the file."), "error");
         } finally {
             createFileBtn.disabled = false;
             createFileBtn.textContent = "Create file";
         }
     });
 
+    // --- File actions -----------------------------------------------------------
 
-    async function downloadFile(relPath, button, downloadName) {
+    // GET /api/files/<path>?download=1 - native browser download (streams to disk,
+    // no Blob in memory, so large files and zipped folders work too)
+    function downloadItem(item) {
+        const downloadName = item.type === "folder" ? `${item.name}.zip` : item.name;
+        const link = document.createElement("a");
+
+        link.href = `${API.file(item.path)}?download=1`;
+        link.download = downloadName;
+        link.hidden = true;
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        showToast(`${downloadName} download started.`, "info");
+    }
+
+    // PATCH /api/files/<path>  {"name": "..."}
+    async function renameItem(item) {
+        const isFolder = item.type === "folder";
+        const extension = isFolder ? "" : getExtension(item.name);
+        const currentName = isFolder ? item.name : getFilenameWithoutExtension(item.name);
+
+        const entered = prompt("Rename", currentName)?.trim();
+        if (!entered || entered === currentName) return;
+
+        const newName = extension ? `${entered}.${extension}` : entered;
+
         try {
-            button.disabled = true;
-
-            const response = await fetch(`/get/${encodePath(relPath)}`, {
-                method: "GET",
-                cache: "no-store"
+            const { data } = await request(API.file(item.path), {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newName })
             });
 
-            if (!response.ok) {
-                let message = `Download failed with status ${response.status}`;
-
-                try {
-                    const data = await response.json();
-                    message = data.error || data.info || data.message || message;
-                } catch {}
-
-                throw new Error(message);
+            if (isFolder && data.path) {
+                moveExpandedState(item.path, data.path);
             }
 
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement("a");
-
-            downloadLink.href = blobUrl;
-            downloadLink.download = downloadName || relPath?.split("/").pop();
-            downloadLink.style.display = "none";
-
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
-
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-
-            showToast(`${downloadLink.download} download started.`);
-        } catch (error) {
-            console.error("[DOWNLOAD] Failed:", relPath, error);
-            showToast(error.message || "Could not download.", "error");
-        } finally {
-            button.disabled = false;
-        }
-    }
-
-    async function renameFile(relPath) {
-        const parts = relPath.split("/");
-        const lastPart = parts.pop();
-        const extension = getExtension(lastPart);
-        const currentName = getFilenameWithoutExtension(lastPart);
-        const enteredName = prompt("Rename", currentName);
-
-        if (enteredName === null || !enteredName.trim()) return;
-
-        const newLastPart = extension ? `${enteredName.trim()}.${extension}` : enteredName.trim();
-
-        try {
-            const data = await fetchJson(
-                `/rename/${encodePath(relPath)}?val=${encodeURIComponent(newLastPart)}`
-            );
-
-            showToast(data.info || "Renamed successfully.");
-            await loadFiles();
+            showToast(`Renamed to '${data.path || newName}'.`);
+            await refreshFiles({ force: true });
         } catch (error) {
             console.error("Rename error:", error);
-            showToast(error.message || "Could not rename.", "error");
+            showToast(errorMessage(error, "Could not rename."), "error");
         }
     }
 
-    async function deleteFile(relPath, button, isFolder) {
+    // DELETE /api/files/<path>
+    async function deleteItem(item, button) {
+        const isFolder = item.type === "folder";
         const label = isFolder ? "folder (and everything inside it)" : "file";
-        const confirmed = confirm(`Are you sure you want to delete this ${label}:\n'${relPath}'?`);
 
-        if (!confirmed) return;
+        if (!confirm(`Are you sure you want to delete this ${label}:\n'${item.path}'?`)) return;
 
         try {
             button.disabled = true;
 
-            const data = await fetchJson(`/delete/${encodePath(relPath)}`, {
-                method: "DELETE"
-            });
+            await request(API.file(item.path), { method: "DELETE" });
 
-            showToast(data.info || "Deleted successfully.");
-            await loadFiles();
+            if (isFolder) {
+                moveExpandedState(item.path, null);
+            }
+
+            showToast(`'${item.path}' deleted.`);
+            await refreshFiles({ force: true });
         } catch (error) {
-            console.error("[DELETE] Failed:", relPath, error);
-            showToast(error.message || "Could not delete.", "error");
+            console.error("Delete error:", item.path, error);
+            showToast(errorMessage(error, "Could not delete."), "error");
         } finally {
             button.disabled = false;
         }
     }
 
-    function getExtension(filename) {
-        const lastDot = filename.lastIndexOf(".");
-
-        if (lastDot <= 0 || lastDot === filename.length - 1) return "";
-
-        return filename.slice(lastDot + 1);
+    // Keeps folders open after a rename; newPrefix = null removes them (delete)
+    function moveExpandedState(oldPrefix, newPrefix) {
+        for (const path of [...expandedFolders]) {
+            if (path === oldPrefix || path.startsWith(`${oldPrefix}/`)) {
+                expandedFolders.delete(path);
+                if (newPrefix) {
+                    expandedFolders.add(newPrefix + path.slice(oldPrefix.length));
+                }
+            }
+        }
     }
 
-    function getFilenameWithoutExtension(filename) {
-        const lastDot = filename.lastIndexOf(".");
-
-        if (lastDot <= 0) return filename;
-
-        return filename.slice(0, lastDot);
-    }
+    // --- File tree rendering ----------------------------------------------------
 
     function createActionButton(icon, className, label, onClick) {
         const button = document.createElement("button");
 
         button.type = "button";
         button.className = `file-action ${className}`;
-        button.innerHTML = icon;
+        button.innerHTML = icon; // static SVG only, never user data
         button.title = label;
         button.setAttribute("aria-label", label);
 
@@ -550,8 +605,25 @@ document.addEventListener("DOMContentLoaded", () => {
         return button;
     }
 
+    function createPreviewLink(item) {
+        const preview = document.createElement("a");
+
+        preview.className = "file-preview-link";
+        preview.innerHTML = icons.preview;
+        preview.href = API.file(item.path);
+        preview.target = "_blank";
+        preview.rel = "noopener noreferrer";
+        preview.title = "Preview";
+        preview.setAttribute("aria-label", "Preview");
+        preview.addEventListener("click", event => event.stopPropagation());
+
+        return preview;
+    }
+
     function renderTree(items, container, depth = 0) {
         items.forEach(item => {
+            const isFolder = item.type === "folder";
+
             const row = document.createElement("div");
             const nameWrap = document.createElement("div");
             const name = document.createElement("span");
@@ -567,12 +639,10 @@ document.addEventListener("DOMContentLoaded", () => {
             actions.className = "file-list-actions";
 
             let toggleIcon = null;
-            let childContainer = null;
 
-            if (item.type === "folder") {
+            if (isFolder) {
                 toggleIcon = document.createElement("span");
                 toggleIcon.className = "folder-toggle";
-                toggleIcon.textContent = "▸";
 
                 const folderIcon = document.createElement("span");
                 folderIcon.className = "folder-icon";
@@ -588,49 +658,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 nameWrap.append(fileIcon, name);
             }
 
-            const downloadBtn = createActionButton(
-                icons.download,
-                "download",
-                item.type === "folder" ? "Download ZIP" : "Download",
-                button => {
-                    const downloadName = item.type === "folder" ? `${item.name}.zip` : item.name;
-                    downloadFile(item.path, button, downloadName);
-                }
+            actions.append(
+                createActionButton(icons.download, "download", isFolder ? "Download ZIP" : "Download",
+                    () => downloadItem(item)),
+                createActionButton(icons.rename, "rename", "Rename",
+                    () => renameItem(item))
             );
 
-            const renameBtn = createActionButton(icons.rename, "rename", "Rename", () => {
-                renameFile(item.path);
-            });
-
-            actions.append(downloadBtn, renameBtn);
-
-            if (item.type === "file") {
-                const preview = document.createElement("a");
-
-                preview.className = "file-preview-link";
-                preview.innerHTML = icons.preview;
-                preview.href = `/data/${encodePath(item.path)}`;
-                preview.target = "_blank";
-                preview.rel = "noopener noreferrer";
-                preview.title = "Preview";
-                preview.setAttribute("aria-label", "Preview");
-                preview.addEventListener("click", event => event.stopPropagation());
-
-                actions.appendChild(preview);
+            if (!isFolder) {
+                actions.appendChild(createPreviewLink(item));
             }
 
-            const deleteBtn = createActionButton(icons.delete, "delete", "Delete", button => {
-                deleteFile(item.path, button, item.type === "folder");
-            });
-
-            actions.appendChild(deleteBtn);
+            actions.appendChild(
+                createActionButton(icons.delete, "delete", "Delete",
+                    button => deleteItem(item, button))
+            );
 
             row.append(nameWrap, actions);
             container.appendChild(row);
 
-            if (item.type === "folder") {
-                childContainer = document.createElement("div");
-                childContainer.className = "folder-children hidden";
+            if (isFolder) {
+                const expanded = expandedFolders.has(item.path);
+                const childContainer = document.createElement("div");
+
+                childContainer.className = "folder-children";
+                childContainer.classList.toggle("hidden", !expanded);
+                toggleIcon.textContent = expanded ? "▾" : "▸";
+                row.setAttribute("aria-expanded", String(expanded));
 
                 renderTree(item.children || [], childContainer, depth + 1);
                 container.appendChild(childContainer);
@@ -639,15 +693,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (event.target.closest("button") || event.target.closest("a")) return;
 
                     const nowHidden = childContainer.classList.toggle("hidden");
+
+                    if (nowHidden) {
+                        expandedFolders.delete(item.path);
+                    } else {
+                        expandedFolders.add(item.path);
+                    }
+
                     toggleIcon.textContent = nowHidden ? "▸" : "▾";
+                    row.setAttribute("aria-expanded", String(!nowHidden));
                 });
             }
         });
     }
 
-    function renderFiles(data) {
-        const files = Array.isArray(data) ? data : Array.isArray(data?.files) ? data.files : [];
-
+    function renderFiles(files) {
         fileList.replaceChildren();
 
         if (!files.length) {
@@ -660,54 +720,101 @@ document.addEventListener("DOMContentLoaded", () => {
 
             empty.appendChild(text);
             fileList.appendChild(empty);
-
             return;
         }
 
         renderTree(files, fileList);
     }
 
-    async function loadFiles() {
+    // --- File list loading & polling: GET /api/files ----------------------------
+
+    function isFileListVisible() {
+        return !fileList.classList.contains("hidden");
+    }
+
+    async function refreshFiles({ force = false } = {}) {
+        if (isLoadingFiles) return;
+        isLoadingFiles = true;
+
+        try {
+            const { data } = await request(API.files);
+            const files = Array.isArray(data.files) ? data.files : [];
+            const json = JSON.stringify(files);
+
+            if (force || json !== lastTreeJson) {
+                lastTreeJson = json;
+                renderFiles(files);
+            }
+        } finally {
+            isLoadingFiles = false;
+        }
+    }
+
+    async function refreshFilesIfVisible() {
+        if (!isFileListVisible()) return;
+
+        try {
+            await refreshFiles({ force: true });
+        } catch (error) {
+            console.warn("File list refresh failed:", error);
+        }
+    }
+
+    // setTimeout chain instead of setInterval: requests never overlap,
+    // and there is only ever one active timer
+    function schedulePoll() {
+        clearTimeout(pollTimer);
+
+        pollTimer = setTimeout(async () => {
+            if (!isFileListVisible()) return;
+
+            if (!document.hidden) {
+                try {
+                    await refreshFiles();
+                } catch (error) {
+                    console.warn("File list poll failed:", error);
+                }
+            }
+
+            schedulePoll();
+        }, FILE_POLL_MS);
+    }
+
+    async function showFileList() {
         try {
             allFilesBtn.disabled = true;
             allFilesBtn.textContent = "Loading...";
 
-            const data = await fetchJson("/all");
-
-            renderFiles(data);
+            await refreshFiles({ force: true });
 
             fileList.classList.remove("hidden");
             allFilesBtn.textContent = "Hide files";
+            schedulePoll();
         } catch (error) {
             console.error("File manager error:", error);
-            showToast(error.message || "Could not load files.", "error");
-
-            fileList.classList.add("hidden");
-            allFilesBtn.textContent = "View files";
+            showToast(errorMessage(error, "Could not load files."), "error");
+            hideFileList();
         } finally {
             allFilesBtn.disabled = false;
         }
     }
 
-    allFilesBtn.addEventListener("click", async () => {
-        if (!fileList.classList.contains("hidden")) {
-            fileList.classList.add("hidden");
-            allFilesBtn.textContent = "View files";
-            return;
+    function hideFileList() {
+        fileList.classList.add("hidden");
+        allFilesBtn.textContent = "View files";
+        clearTimeout(pollTimer);
+        pollTimer = null;
+    }
+
+    allFilesBtn.addEventListener("click", () => {
+        if (isFileListVisible()) {
+            hideFileList();
+        } else {
+            showFileList();
         }
-
-        await loadFiles();
-
-        const interval = setInterval(async () => {
-            if (fileList.classList.contains("hidden")) {
-                clearInterval(interval);
-                return;
-            }
-
-            await loadFiles();
-        }, 3_000);
     });
 
+    // --- Connection status: GET /api/health -------------------------------------
 
     function setConnectionState(online) {
         connectionStatus.classList.toggle("online", online);
@@ -718,11 +825,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function checkConnection() {
         try {
-            await fetchJson("/connection");
+            await request(API.health, { signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS) });
             setConnectionState(true);
         } catch {
             setConnectionState(false);
         }
     }
-    setInterval(checkConnection, 20_000);
+
+    window.addEventListener("online", checkConnection);
+    window.addEventListener("offline", () => setConnectionState(false));
+
+    checkConnection();
+    setInterval(checkConnection, CONNECTION_POLL_MS);
 });
