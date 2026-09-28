@@ -1,4 +1,6 @@
-flask
 python-dotenv
 requests
 Flask-Limiter
+flask~=3.1
+psutil~=7.2
+gunicorn~=26.2

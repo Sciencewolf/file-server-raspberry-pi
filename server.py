@@ -2,18 +2,22 @@ from flask import Flask, render_template, jsonify, request, send_from_directory,
 import os
 import sys
 import io
+import time
 import shutil
 import zipfile
 import logging
 import uuid
+import psutil
 from werkzeug.utils import secure_filename
+
+from system_metrics import MetricsCollector, format_uptime
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
-app.config["DIR"] = "/app/data"
+app.config["DIR"] = os.environ.get("DATA_DIR", "/app/data")
 
-
+    
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -24,6 +28,12 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("file-api")
+
+metrics = MetricsCollector(
+    interval=float(os.environ.get("METRICS_INTERVAL", "2")),
+    disk_path=app.config["DIR"] if os.path.isdir(app.config["DIR"]) else "/"
+)
+metrics.start()
 
 
 @app.before_request
@@ -60,14 +70,22 @@ def main():
     return render_template("index.html")
 
 
+def _base_dir():
+    return os.path.realpath(app.config["DIR"])
+
+
 def _resolve_safe_path(relative_path):
-    base_dir = os.path.abspath(app.config["DIR"])
-    full_path = os.path.abspath(os.path.join(base_dir, relative_path or ""))
+    base_dir = _base_dir()
+    full_path = os.path.realpath(os.path.join(base_dir, relative_path or ""))
 
     if full_path != base_dir and not full_path.startswith(base_dir + os.sep):
         return None
 
     return full_path
+
+
+def _is_base_dir(full_path):
+    return full_path == _base_dir()
 
 
 def _safe_relative_path(raw_path):
@@ -256,14 +274,21 @@ def get_file(filename):
 
 @app.route("/create", methods=["POST"])
 def create():
-    filename = request.args.get("fname") or "plain"
-    file_extension = request.args.get("ext") or "txt"
-    body = request.data.decode("utf-8")
+    filename = secure_filename(request.args.get("fname") or "plain")
+    file_extension = secure_filename(request.args.get("ext") or "txt")
 
-    full_path = os.path.join(
-        app.config["DIR"],
-        f"{filename}.{file_extension}"
-    )
+    if not filename or not file_extension:
+        return jsonify({"error": "Invalid file name or extension"}), 400
+
+    full_path = _resolve_safe_path(f"{filename}.{file_extension}")
+
+    if full_path is None:
+        return jsonify({"error": "Invalid path"}), 400
+
+    try:
+        body = request.data.decode("utf-8")
+    except UnicodeDecodeError:
+        return jsonify({"error": "Body must be UTF-8 text"}), 400
 
     logger.info(
         "[%s] Creating file | path=%r",
@@ -271,7 +296,7 @@ def create():
         full_path
     )
 
-    with open(full_path, "w") as file:
+    with open(full_path, "w", encoding="utf-8") as file:
         file.write(body)
 
     return jsonify({"info": f"'{filename}.{file_extension}' is created."})
@@ -284,20 +309,29 @@ def rename_file(filename):
     if not new_name_raw:
         return jsonify({"error": "Missing new name"}), 400
 
-    base_dir = app.config["DIR"]
     old_path = _resolve_safe_path(filename)
 
     if old_path is None or not os.path.exists(old_path):
         return jsonify({"error": "File not found"}), 404
 
+    if _is_base_dir(old_path):
+        return jsonify({"error": "Cannot rename the root directory"}), 400
+
     parent_rel = os.path.dirname(filename)
-    new_name = secure_filename(new_name_raw) or new_name_raw
+    new_name = secure_filename(new_name_raw)
+
+    if not new_name:
+        return jsonify({"error": "Invalid new name"}), 400
+
     new_rel = f"{parent_rel}/{new_name}" if parent_rel else new_name
 
     new_path = _resolve_safe_path(new_rel)
 
     if new_path is None:
         return jsonify({"error": "Invalid new path"}), 400
+
+    if os.path.exists(new_path):
+        return jsonify({"error": "Target already exists"}), 409
 
     logger.info(
         "[%s] Rename requested | old=%r | new=%r",
@@ -335,11 +369,13 @@ def rename_file(filename):
 def delete_file(filename):
     request_id = request.request_id
 
-    directory = app.config["DIR"]
     full_path = _resolve_safe_path(filename)
 
     if full_path is None:
         return jsonify({"error": "Invalid path"}), 400
+
+    if _is_base_dir(full_path):
+        return jsonify({"error": "Cannot delete the root directory"}), 400
 
     logger.info(
         "[%s] DELETE START | filename=%r | path=%r",
@@ -407,8 +443,7 @@ def delete_file(filename):
         return jsonify({
             "error": "Delete failed",
             "filename": filename,
-            "exception": type(e).__name__,
-            "message": str(e)
+            "request_id": request_id
         }), 500
 
 
@@ -426,6 +461,23 @@ def serve_data(filename):
 @app.route("/connection")
 def check_connection():
     return jsonify({"response": "ok"}), 200
+
+
+@app.route("/pi")
+def get_pi_data():
+    snapshot = metrics.snapshot()
+
+    if snapshot is None:
+        return jsonify({"error": "Metrics not available yet"}), 503
+
+    uptime_s = int(time.time() - psutil.boot_time())
+
+    return jsonify({
+        **metrics.static,
+        "uptime": format_uptime(uptime_s),
+        "uptime_s": uptime_s,
+        "metrics": snapshot
+    })
 
 
 @app.route("/robots.txt")

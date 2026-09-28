@@ -1,16 +1,29 @@
 #!/bin/bash
-
-set -e
-
-/usr/bin/docker rm -f file-server 2>/dev/null || true
+set -euo pipefail
 
 cd /home/aron/file-server-raspberry-pi
 
-/usr/bin/docker build --no-cache -t file-server .
+BUILD_ARGS=()
+if [[ "${1:-}" == "--fresh" ]]; then
+    BUILD_ARGS=(--no-cache --pull)
+fi
 
-/usr/bin/docker run -d \
-    --name file-server \
-    --restart unless-stopped \
-    -p 8080:8080 \
-    -v ~/data:/app/data \
-    file-server
+/usr/bin/docker compose build "${BUILD_ARGS[@]}"
+
+/usr/bin/docker compose up -d
+
+/usr/bin/docker image prune -f >/dev/null
+
+for _ in $(seq 1 30); do
+    status=$(/usr/bin/docker inspect -f '{{.State.Health.Status}}' file-server 2>/dev/null || echo "starting")
+    if [[ "$status" == "healthy" ]]; then
+        echo "✔ file-server fut és healthy"
+        exit 0
+    fi
+    sleep 2
+done
+
+echo "✘ file-server nem lett healthy 60 mp alatt, utolsó logok:" >&2
+/usr/bin/docker compose logs --tail 50 >&2
+
+exit 1
