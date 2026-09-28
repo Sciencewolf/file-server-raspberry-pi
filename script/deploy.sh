@@ -1,11 +1,11 @@
 #!/bin/bash
-# Használat: ./run.sh test   vagy   ./run.sh prod
+# Usage: ./run.sh test   or   ./run.sh prod
 set -euo pipefail
 
 case "${1:-}" in
     test) NAME=file-server-test; PORT=8081; DATA=/home/aron/data ;;
     prod) NAME=file-server-prod; PORT=8080; DATA=/home/data ;;
-    *)    echo "Használat: $0 test|prod"; exit 1 ;;
+    *)    echo "Usage: $0 test|prod"; exit 1 ;;
 esac
 
 cd /home/aron/file-server-raspberry-pi
