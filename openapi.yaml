@@ -24,7 +24,7 @@ tags:
   - name: Files
   - name: System
 x-tagGroups:
-  - name: Raspberry Pi File Server
+  - name: Raspberry Pi File Server OpenAPI
     tags: [Files, System]
 paths:
   /api/health:
