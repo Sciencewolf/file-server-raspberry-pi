@@ -21,15 +21,11 @@ servers:
   - url: http://raspberrypi.local:8080
     description: Raspberry Pi on the LAN
 tags:
-  - name: Files
-  - name: System
-x-tagGroups:
-  - name: Raspberry Pi File Server OpenAPI
-    tags: [Files, System]
+  - name: file-server
 paths:
   /api/health:
     get:
-      tags: [System]
+      tags: [file-server]
       summary: Health check
       operationId: getHealth
       responses:
@@ -45,7 +41,7 @@ paths:
                     example: ok
   /api/system:
     get:
-      tags: [System]
+      tags: [file-server]
       summary: Device info and latest metrics snapshot
       operationId: getSystem
       responses:
@@ -63,7 +59,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /api/files:
     get:
-      tags: [Files]
+      tags: [file-server]
       summary: Get the full file tree
       operationId: listFiles
       responses:
@@ -79,7 +75,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/TreeNode'
     post:
-      tags: [Files]
+      tags: [file-server]
       summary: Upload one or more files
       description: |
         `multipart/form-data` with a repeatable `files` field (legacy alias `file`) and
@@ -149,7 +145,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/RelPath'
     get:
-      tags: [Files]
+      tags: [file-server]
       summary: Download / preview a file, or download a folder as ZIP
       description: |
         For a file: served inline (for previews) by default, or as an attachment with
@@ -180,7 +176,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     put:
-      tags: [Files]
+      tags: [file-server]
       summary: Create or replace a file with the raw request body
       description: Idempotent. Written atomically via a temp file.
       operationId: putFile
@@ -218,7 +214,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     patch:
-      tags: [Files]
+      tags: [file-server]
       summary: Rename a file or folder (same parent folder)
       operationId: renameFile
       requestBody:
@@ -255,7 +251,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
-      tags: [Files]
+      tags: [file-server]
       summary: Delete a file or folder (recursive)
       operationId: deleteFile
       responses:
