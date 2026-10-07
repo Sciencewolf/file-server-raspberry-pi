@@ -170,6 +170,16 @@ def index():
     return render_template("index.html")
 
 
+@app.get("/openapi.yaml")
+def openapi_spec():
+    return send_from_directory(Path(__file__).parent, "openapi.yaml", mimetype="application/yaml")
+
+
+@app.get("/docs")
+def docs():
+    return render_template("docs.html")
+
+
 @app.get("/robots.txt")
 def robots():
     return send_from_directory(app.static_folder, "robots.txt")

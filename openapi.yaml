@@ -1,0 +1,463 @@
+openapi: 3.0.3
+info:
+  title: Raspberry Pi File Server API
+  version: 1.0.0
+  description: |
+    Small Flask API for browsing, uploading, downloading, renaming and deleting
+    files in a data directory (`DATA_DIR`), plus health and Raspberry Pi system metrics.
+
+    **Notes**
+    - All paths are relative to `DATA_DIR`; paths escaping it are rejected with `400`.
+    - Names are sanitised with `secure_filename` on upload / PUT / rename, so the stored
+      name may differ from the one sent.
+    - Every response carries an `X-Request-ID` header; errors repeat it as `request_id`.
+    - Upload size limit is set by the `MAX_UPLOAD_MB` env var (exceeding it returns `413`).
+    - There is no authentication.
+servers:
+  - url: /
+    description: This server
+  - url: http://localhost:8080
+    description: Local / Docker
+  - url: http://raspberrypi.local:8080
+    description: Raspberry Pi on the LAN
+tags:
+  - name: Files
+  - name: System
+paths:
+  /api/health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/system:
+    get:
+      tags: [System]
+      summary: Device info and latest metrics snapshot
+      operationId: getSystem
+      responses:
+        '200':
+          description: Static hardware info plus the most recent metrics sample
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+        '503':
+          description: Metrics collector has no sample yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/files:
+    get:
+      tags: [Files]
+      summary: Get the full file tree
+      operationId: listFiles
+      responses:
+        '200':
+          description: Recursive tree of `DATA_DIR` (symlinks are skipped)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TreeNode'
+    post:
+      tags: [Files]
+      summary: Upload one or more files
+      description: |
+        `multipart/form-data` with a repeatable `files` field (legacy alias `file`) and
+        an optional repeatable `paths` field giving the target relative path for each
+        file, in the same order. Without `paths`, the file's own name is used.
+      operationId: uploadFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                paths:
+                  type: array
+                  description: Target relative paths, same order as `files`
+                  items:
+                    type: string
+                    example: photos/2025/cat.jpg
+            encoding:
+              files:
+                style: form
+                explode: true
+              paths:
+                style: form
+                explode: true
+      responses:
+        '201':
+          description: All files uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResult'
+        '207':
+          description: Partial success - some files failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResult'
+        '400':
+          description: No files provided, or every file failed validation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Error'
+                  - $ref: '#/components/schemas/UploadFailure'
+        '413':
+          description: Request larger than `MAX_UPLOAD_MB`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: All files failed due to an I/O error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadFailure'
+  /api/files/{rel}:
+    parameters:
+      - $ref: '#/components/parameters/RelPath'
+    get:
+      tags: [Files]
+      summary: Download / preview a file, or download a folder as ZIP
+      description: |
+        For a file: served inline (for previews) by default, or as an attachment with
+        `?download=1`. Supports conditional / range requests.
+        For a folder: returns `<foldername>.zip` as an attachment.
+      operationId: getFile
+      parameters:
+        - name: download
+          in: query
+          description: Send as attachment instead of inline (files only)
+          schema:
+            type: string
+            enum: ['1', 'true']
+      responses:
+        '200':
+          description: File content or ZIP archive
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Files]
+      summary: Create or replace a file with the raw request body
+      description: Idempotent. Written atomically via a temp file.
+      operationId: putFile
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Existing file replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathResult'
+        '201':
+          description: New file created
+          headers:
+            Location:
+              description: URL of the new file
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A folder already exists at this path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags: [Files]
+      summary: Rename a file or folder (same parent folder)
+      operationId: renameFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: new-name.txt
+      responses:
+        '200':
+          description: Renamed
+          headers:
+            Location:
+              description: URL of the renamed item
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Target name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Files]
+      summary: Delete a file or folder (recursive)
+      operationId: deleteFile
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    RelPath:
+      name: rel
+      in: path
+      required: true
+      description: Path relative to `DATA_DIR` (may contain slashes)
+      allowEmptyValue: false
+      schema:
+        type: string
+        example: photos/2025/cat.jpg
+      # Flask <path:rel> accepts slashes; most tools will URL-encode them unless
+      # "allowReserved" behaviour is enabled in the client.
+  responses:
+    BadRequest:
+      description: Invalid path or request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Not found
+        request_id:
+          type: string
+          example: a1b2c3d4
+    PathResult:
+      type: object
+      properties:
+        path:
+          type: string
+          example: photos/2025/cat.jpg
+    UploadResult:
+      type: object
+      properties:
+        uploaded:
+          type: array
+          items:
+            type: string
+          example: [photos/cat.jpg]
+        failed:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadFailed'
+    UploadFailed:
+      type: object
+      properties:
+        path:
+          type: string
+        error:
+          type: string
+    UploadFailure:
+      allOf:
+        - $ref: '#/components/schemas/UploadResult'
+        - $ref: '#/components/schemas/Error'
+    TreeNode:
+      type: object
+      required: [name, path, type]
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        type:
+          type: string
+          enum: [file, folder]
+        size:
+          type: integer
+          description: Bytes (files only)
+        children:
+          type: array
+          description: Folders only
+          items:
+            $ref: '#/components/schemas/TreeNode'
+    SystemInfo:
+      type: object
+      properties:
+        model:
+          type: string
+          nullable: true
+          example: Raspberry Pi 4 Model B Rev 1.4
+        cpu:
+          type: string
+          nullable: true
+          example: ARM Cortex-A72
+        cpu_cores:
+          type: integer
+          example: 4
+        ram:
+          type: string
+          example: 3.7 GiB
+        ram_total_mb:
+          type: integer
+          example: 3792
+        os:
+          type: string
+          nullable: true
+          example: Debian GNU/Linux 12 (bookworm)
+        os_source:
+          type: string
+          nullable: true
+          enum: [host, container_or_host]
+        uptime:
+          type: string
+          example: 3d 04:12:09
+        uptime_s:
+          type: integer
+        metrics:
+          $ref: '#/components/schemas/Metrics'
+    Metrics:
+      type: object
+      properties:
+        sampled_at:
+          type: string
+          format: date-time
+        sample_window_s:
+          type: number
+        cpu:
+          type: object
+          properties:
+            percent_total:
+              type: number
+            percent_per_core:
+              type: array
+              items:
+                type: number
+            load_avg_1_5_15:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items:
+                type: number
+            freq_mhz:
+              type: integer
+              nullable: true
+            temp_c:
+              type: number
+              nullable: true
+            throttling:
+              type: object
+              nullable: true
+              description: Decoded `vcgencmd get_throttled` flags
+              properties:
+                raw:
+                  type: string
+                  example: '0x50000'
+                under_voltage_now:
+                  type: boolean
+                freq_capped_now:
+                  type: boolean
+                throttled_now:
+                  type: boolean
+                soft_temp_limit_now:
+                  type: boolean
+                under_voltage_occurred:
+                  type: boolean
+                freq_capped_occurred:
+                  type: boolean
+                throttled_occurred:
+                  type: boolean
+                soft_temp_limit_occurred:
+                  type: boolean
+        memory:
+          type: object
+          properties:
+            available_mb:
+              type: integer
+            used_percent:
+              type: number
+            swap_used_percent:
+              type: number
+        disk:
+          type: object
+          properties:
+            path:
+              type: string
+            total_gb:
+              type: number
+            free_gb:
+              type: number
+            used_percent:
+              type: number
+        network:
+          type: object
+          properties:
+            rx_kbps:
+              type: number
+            tx_kbps:
+              type: number
