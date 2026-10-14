@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const API = {
         health: "/api/health",
+        system: "/api/system",
         files: "/api/files",
         file: relPath => `/api/files/${encodePath(relPath)}`
     };
@@ -12,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const FILE_POLL_MS = 3_000;
     const CONNECTION_POLL_MS = 20_000;
     const CONNECTION_TIMEOUT_MS = 5_000;
+    const SYSTEM_POLL_MS = 5_000;
 
     // --- DOM ------------------------------------------------------------------
 
@@ -32,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const connectionStatus = $("connection-status");
     const statusText = $("status-text");
     const offlineOverlay = $("offline-overlay");
+    const systemInfoEl = $("system-info");
 
     const newFileCheckbox = $("checkbox-new-file");
     const newFileWrapper = $("wrapper-new-file");
@@ -620,6 +623,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return preview;
     }
 
+    function itemSize(item) {
+        if (item.type !== "folder") return item.size || 0;
+        return (item.children || []).reduce((sum, child) => sum + itemSize(child), 0);
+    }
+
     function renderTree(items, container, depth = 0) {
         items.forEach(item => {
             const isFolder = item.type === "folder";
@@ -638,6 +646,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             actions.className = "file-list-actions";
 
+            const size = document.createElement("span");
+            size.className = "file-list-size";
+            size.textContent = formatFileSize(itemSize(item));
+
             let toggleIcon = null;
 
             if (isFolder) {
@@ -648,14 +660,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 folderIcon.className = "folder-icon";
                 folderIcon.textContent = "📁";
 
-                nameWrap.append(toggleIcon, folderIcon, name);
+                nameWrap.append(toggleIcon, folderIcon, name, size);
                 row.classList.add("folder-row");
             } else {
                 const fileIcon = document.createElement("span");
                 fileIcon.className = "file-icon";
                 fileIcon.textContent = "📄";
 
-                nameWrap.append(fileIcon, name);
+                nameWrap.append(fileIcon, name, size);
             }
 
             actions.append(
@@ -837,4 +849,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
     checkConnection();
     setInterval(checkConnection, CONNECTION_POLL_MS);
+
+    // --- System info footer: GET /api/system ------------------------------------
+
+    function renderSystemInfo(info) {
+        const { model, os, cpu, cpu_cores, ram, uptime, metrics: m } = info;
+        const items = [];
+        const add = (text, warn = false) => items.push([text, warn]);
+
+        if (model) add(model);
+        if (os) add(os);
+        if (cpu) add(`${cpu} × ${cpu_cores}`);
+        add(`RAM ${ram}`);
+        add(`Uptime ${uptime}`);
+
+        if (m) {
+            const t = m.cpu.throttling;
+            const throttled = t && Object.entries(t).some(([k, v]) => k.endsWith("_now") && v);
+
+            add(`CPU ${m.cpu.percent_total}%`);
+            if (m.cpu.freq_mhz != null) add(`${m.cpu.freq_mhz} MHz`);
+            add(`Load ${m.cpu.load_avg_1_5_15.join(" / ")}`);
+            if (m.cpu.temp_c != null) add(`${m.cpu.temp_c} °C`, m.cpu.temp_c >= 80);
+            if (t) add(throttled ? "Throttled" : "No throttling", throttled);
+
+            add(`RAM used ${m.memory.used_percent}% (${m.memory.available_mb} MB free)`);
+            add(`Swap ${m.memory.swap_used_percent}%`);
+
+            const usedGb = (m.disk.total_gb - m.disk.free_gb).toFixed(1);
+            add(`Disk ${usedGb} / ${m.disk.total_gb} GB (${m.disk.used_percent}%) on ${m.disk.path}`,
+                m.disk.used_percent >= 90);
+
+            add(`↓ ${m.network.rx_kbps} kbps`);
+            add(`↑ ${m.network.tx_kbps} kbps`);
+        }
+
+        systemInfoEl.replaceChildren(...items.map(([text, warn]) => {
+            const span = document.createElement("span");
+            span.textContent = text;
+            span.classList.toggle("warn", warn);
+            return span;
+        }));
+    }
+
+    async function refreshSystemInfo() {
+        if (document.hidden) return;
+
+        try {
+            const { data } = await request(API.system, { signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS) });
+            renderSystemInfo(data);
+        } catch (error) {
+            console.warn("System info failed:", error);
+            systemInfoEl.textContent = "System info unavailable";
+        }
+    }
+
+    refreshSystemInfo();
+    setInterval(refreshSystemInfo, SYSTEM_POLL_MS);
 });

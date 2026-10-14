@@ -620,12 +620,36 @@ input::placeholder {
 
 footer {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 9px;
     padding: 8px;
     color: #45454d;
     font-size: 11px;
+}
+
+.file-list-size {
+    flex-shrink: 0;
+    margin-left: 10px;
+    color: #7f9099;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.system-info {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+    color: #7f9099;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.system-info span.warn {
+    color: #fbbf24;
 }
 
 #dev_text {
